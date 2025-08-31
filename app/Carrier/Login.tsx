@@ -148,8 +148,9 @@ const Login = () => {
 
         {/* Footer */}
         <View style={styles.footerRow}>
+          <View style={{ flex: 1 }} />
           <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-          <Pressable onPress={() => console.log("Sign Up")}>
+          <Pressable onPress={() => router.push("/Carrier/Registration")}>
             <Text style={styles.signUpText}>Sign up</Text>
           </Pressable>
         </View>
@@ -214,7 +215,12 @@ const styles = StyleSheet.create({
   },
   loginBtnDisabled: { opacity: 0.6 },
   loginText: { fontSize: 16, fontWeight: "700", color: "#FFFFFF" },
-  footerRow: { marginTop: 18, flexDirection: "row", justifyContent: "center" },
+  footerRow: {
+    marginTop: 18,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
   footerText: { fontSize: 14, color: "#6B7280" },
   signUpText: { fontSize: 14, color: "#EF4444", fontWeight: "700" },
 });

@@ -31,6 +31,24 @@ export default function RootLayout() {
         />
         <Stack.Screen name="ScreenDivision" options={{ headerShown: false }} />
         <Stack.Screen name="Carrier/Login" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Carrier/Registration"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Carrier/EnterOtp"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen name="Carrier/Success" options={{ headerShown: false }} />
+        <Stack.Screen name="Carrier/Expect" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Carrier/EnterBvn"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Carrier/ProfieScreen"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </ThemeProvider>
