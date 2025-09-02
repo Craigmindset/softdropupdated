@@ -49,6 +49,10 @@ export default function RootLayout() {
           name="Carrier/ProfieScreen"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="Carrier/FacialSelfie"
+          options={{ headerShown: false }}
+        />
       </Stack>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </ThemeProvider>

@@ -79,13 +79,31 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.label}>Phone Number</Text>
-          <Text style={styles.value}>{profile.phone_number}</Text>
-        </View>
-
-        <View style={styles.card}>
           <Text style={styles.label}>Email</Text>
           <Text style={styles.value}>{profile.email}</Text>
+        </View>
+
+        {/* Proceed Button */}
+        <TouchableOpacity
+          style={styles.proceedBtn}
+          onPress={() => router.push("/Carrier/FacialSelfie")}
+        >
+          <Text style={styles.proceedBtnText}>Proceed</Text>
+        </TouchableOpacity>
+
+        {/* Warning/Alert below the button */}
+        <View style={styles.warnBox}>
+          <MaterialIcons
+            name="warning"
+            size={18}
+            color="#FFA500"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.warnText}>
+            If the details matches your NIMC data proceed to ID validation &
+            Facial Recognition. If not, please contact{" "}
+            <Text style={styles.supportLink}>support</Text>.
+          </Text>
         </View>
       </View>
     </SafeAreaView>
@@ -99,6 +117,34 @@ const TEXT_DARK = "#231815";
 const MUTED = "#6F6B6A";
 
 const styles = StyleSheet.create({
+  proceedBtn: {
+    marginTop: 18,
+    backgroundColor: GREEN,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  proceedBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  warnBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF8E1",
+    borderRadius: 6,
+    padding: 10,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  warnText: {
+    color: "#B26A00",
+    fontSize: 12,
+    flex: 1,
+    flexWrap: "wrap",
+  },
   safe: {
     flex: 1,
     backgroundColor: "#FFFFFF",
@@ -145,5 +191,15 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   label: { fontSize: 13, color: MUTED, marginBottom: 4 },
+
   value: { fontSize: 15, fontWeight: "600", color: TEXT_DARK },
+  supportLink: {
+    color: "#1976D2",
+    textAlign: "center",
+    textDecorationLine: "underline",
+    fontSize: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    fontWeight: "500",
+  },
 });

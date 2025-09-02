@@ -62,7 +62,7 @@ const Expect = ({ onBack, onBVN, onID, onFace, onReady }: Props) => {
 
         {/* Cards */}
         <TouchableOpacity
-          onPress={() => router.push("/Carrier/EnterBvn")}
+          onPress={onBVN}
           style={styles.card}
           activeOpacity={0.8}
         >
@@ -115,7 +115,7 @@ const Expect = ({ onBack, onBVN, onID, onFace, onReady }: Props) => {
         {/* CTA */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={onReady}
+          onPress={() => router.push("/Carrier/EnterBvn")}
           style={styles.cta}
         >
           <Text style={styles.ctaText}>I’m ready</Text>
@@ -165,19 +165,22 @@ const styles = StyleSheet.create({
 
   // cards
   card: {
-    marginTop: 10,
+    marginTop: 18,
+    marginBottom: 12, // add spacing between cards
     backgroundColor: CARD_BG,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+
+    // soft shadow
     shadowColor: SHADOW,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   cardLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   cardIcon: { fontSize: 18 },
