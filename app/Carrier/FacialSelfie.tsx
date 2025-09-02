@@ -1,6 +1,7 @@
 // Carrier/FacialSelfie.tsx
 import React, { useRef, useState } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
 import { useRouter } from "expo-router";
 import {
   SafeAreaView,
@@ -65,13 +66,17 @@ const FacialSelfie = () => {
         runClassifications: FaceDetector.FaceDetectorClassifications.none,
       });
       if (!faceResult.faces || faceResult.faces.length === 0) {
-        setErrorMsg("No face detected. Please align your face in the oval and try again.");
+        setErrorMsg(
+          "No face detected. Please align your face in the oval and try again."
+        );
         return;
       }
       setPhotoUri(photo.uri);
       setStage("preview");
     } catch (err) {
-      setErrorMsg("An error occurred while capturing or analyzing the photo. Please try again.");
+      setErrorMsg(
+        "An error occurred while capturing or analyzing the photo. Please try again."
+      );
     }
   };
 
@@ -81,8 +86,11 @@ const FacialSelfie = () => {
   };
 
   const confirm = () => {
-    // TODO: upload photoUri / continue KYC flow
-    console.log("Selfie captured:", photoUri);
+    // For now, always route to ScanningScreen (even if photoUri is null)
+    router.push({
+      pathname: "/Carrier/ScanningScreen",
+      params: { uri: photoUri ?? "" },
+    });
   };
 
   // Permissions UI
@@ -90,14 +98,32 @@ const FacialSelfie = () => {
   if (!permission.granted) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={[styles.container, { justifyContent: "center" }]}>
-          <Text style={styles.title}>Camera Permission Needed</Text>
-          <Text style={styles.subtitle}>
+        <View
+          style={[
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
+          <LottieView
+            source={require("../../assets/images/Face verification.json")}
+            autoPlay
+            loop
+            style={{ width: 180, height: 180, marginBottom: 8 }}
+          />
+          <Text style={[styles.title, { textAlign: "center" }]}>
+            Camera Permission Needed
+          </Text>
+          <Text
+            style={[styles.subtitle, { textAlign: "center", marginTop: 10 }]}
+          >
             Please allow camera access in your device settings to continue.
           </Text>
           <TouchableOpacity
             onPress={requestPermission}
-            style={[styles.ctaPurple, { marginTop: 16 }]}
+            style={[
+              styles.ctaPurple,
+              { marginTop: 16, minWidth: 220, paddingHorizontal: 32 },
+            ]}
           >
             <Text style={styles.ctaPurpleText}>Grant Permission</Text>
           </TouchableOpacity>
@@ -190,7 +216,10 @@ const FacialSelfie = () => {
             {errorMsg && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{errorMsg}</Text>
-                <TouchableOpacity onPress={() => setErrorMsg(null)} style={styles.errorDismissBtn}>
+                <TouchableOpacity
+                  onPress={() => setErrorMsg(null)}
+                  style={styles.errorDismissBtn}
+                >
                   <Text style={styles.errorDismissText}>Try Again</Text>
                 </TouchableOpacity>
               </View>
@@ -203,9 +232,8 @@ const FacialSelfie = () => {
             >
               <Text style={styles.captureText}>Capture</Text>
             </TouchableOpacity>
-	  </View>
+          </View>
         )}
-
 
         {stage === "preview" && (
           <View style={{ flex: 1 }}>
@@ -228,7 +256,10 @@ const FacialSelfie = () => {
                 </Text>
               </Pressable>
               <Pressable
-                onPress={confirm}
+                onPress={() => {
+                  console.log("Use Photo pressed:", photoUri);
+                  confirm();
+                }}
                 style={[styles.actionBtn, styles.fillBtn]}
               >
                 <Text style={[styles.actionText, { color: "#fff" }]}>
