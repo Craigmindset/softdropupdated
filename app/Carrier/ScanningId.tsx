@@ -113,7 +113,11 @@ export default function ScanningId() {
         setActiveSide("front");
         setStage("choice");
       } else {
-        setStage("review");
+        // Both sides are captured, route to Success with next=FacialSelfie
+        router.replace({
+          pathname: "/Carrier/Success",
+          params: { next: "FacialSelfie" },
+        });
       }
     }
   };
@@ -262,7 +266,7 @@ export default function ScanningId() {
       <View style={styles.previewBox}>
         <Image source={{ uri }} style={styles.previewImg} resizeMode="cover" />
       </View>
-      <View style={styles.row}>
+      <View style={[styles.row, { marginTop: 40, marginBottom: 40 }]}>
         <Pressable
           style={[styles.actionBtn, styles.outline]}
           onPress={() => retake(side)}
@@ -298,10 +302,10 @@ export default function ScanningId() {
       </View>
 
       {/* Body */}
-      <View style={[styles.container, { marginTop: 40 }]}>
+      <View style={[styles.container, { marginTop: 5 }]}>
         {stage === "choice" || stage === "review" ? (
           <>
-            <Text style={styles.title}>Uploading…</Text>
+            <Text style={styles.title}>ID Verification</Text>
             <ChoiceBlock />
           </>
         ) : null}
@@ -425,8 +429,9 @@ const styles = StyleSheet.create({
   // Camera
   cameraWrap: {
     flex: 1,
-    marginTop: 12,
+    marginTop: 2,
     borderRadius: 16,
+    marginBottom: 20,
     overflow: "hidden",
     backgroundColor: "#000",
   },
@@ -438,9 +443,10 @@ const styles = StyleSheet.create({
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor: OVERLAY_DIM },
 
   guideBox: {
-    width: 260,
-    height: 170,
+    width: 250,
+    height: 400,
     borderRadius: 12,
+    marginTop: 50,
     borderWidth: 2,
     borderColor: "rgba(255,255,255,0.15)", // faint frame
     justifyContent: "center",
@@ -482,7 +488,7 @@ const styles = StyleSheet.create({
   },
 
   overlayText: {
-    marginTop: 190,
+    marginTop: 100,
     color: "#FFF",
     fontSize: 13,
   },

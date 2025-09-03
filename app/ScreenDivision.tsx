@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 1,
     marginBottom: 16,
-    backgroundColor: "black",
+    backgroundColor: "#117A37", // darker green
 
     elevation: 2,
     shadowColor: "#000",

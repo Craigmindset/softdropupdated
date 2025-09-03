@@ -47,6 +47,10 @@ export default function RootLayout() {
         />
         <Stack.Screen name="Carrier/Success" options={{ headerShown: false }} />
         <Stack.Screen
+          name="Carrier/CreatePassword"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
           name="Carrier/ScanningId"
           options={{ headerShown: false }}
         />
@@ -66,6 +70,10 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="Carrier/ScanningScreen"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Carrier/AccountSuccessful"
           options={{ headerShown: false }}
         />
       </Stack>

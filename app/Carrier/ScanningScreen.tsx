@@ -91,7 +91,10 @@ export default function ScanningScreen() {
       const { done, match } = verifyRef.current;
       if (done) {
         if (match) {
-          router.replace("/Carrier/Success"); // route to your success screen
+          router.replace({
+            pathname: "/Carrier/Success",
+            params: { next: "CreatePassword" },
+          });
         } else {
           // If you have a failure screen, navigate there instead:
           // router.replace("/Carrier/Failure");

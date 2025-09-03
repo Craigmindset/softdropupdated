@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 const Success = () => {
   const router = useRouter();
-  const { phone } = useLocalSearchParams();
+  const { phone, next } = useLocalSearchParams();
   const phoneNumber =
     typeof phone === "string"
       ? phone
@@ -16,7 +16,16 @@ const Success = () => {
   const animationRef = useRef<LottieView>(null);
 
   const handleAnimationFinish = () => {
-    // If phoneNumber is missing, show an error or fallback
+    // Determine where to go next
+    if (next === "FacialSelfie") {
+      router.replace("/Carrier/FacialSelfie");
+      return;
+    }
+    if (next === "CreatePassword") {
+      router.replace("/Carrier/CreatePassword");
+      return;
+    }
+    // Default: Expect (needs phone param)
     if (!phoneNumber) {
       alert("Missing phone number. Please restart signup.");
       return;
