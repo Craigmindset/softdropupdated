@@ -283,7 +283,7 @@ export default function ScanningId() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#0D0F14" />
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -298,7 +298,7 @@ export default function ScanningId() {
       </View>
 
       {/* Body */}
-      <View style={styles.container}>
+      <View style={[styles.container, { marginTop: 40 }]}>
         {stage === "choice" || stage === "review" ? (
           <>
             <Text style={styles.title}>Uploading…</Text>
@@ -335,6 +335,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
+    marginTop: 40,
     justifyContent: "space-between",
     backgroundColor: "transparent",
   },
@@ -346,7 +347,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.15)",
   },
-  headerTitle: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  headerTitle: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+    marginTop: 10,
+  },
 
   container: {
     flex: 1,
@@ -485,7 +491,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 18,
+    bottom: 60,
     backgroundColor: GREEN,
     borderRadius: 28,
     paddingVertical: 14,

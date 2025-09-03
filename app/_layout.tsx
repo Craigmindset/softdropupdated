@@ -46,6 +46,11 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="Carrier/Success" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Carrier/ScanningId"
+          options={{ headerShown: false }}
+        />
+        ;
         <Stack.Screen name="Carrier/Expect" options={{ headerShown: false }} />
         <Stack.Screen
           name="Carrier/EnterBvn"

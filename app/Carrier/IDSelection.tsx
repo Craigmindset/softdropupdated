@@ -41,8 +41,8 @@ export default function IDSelection() {
   );
 
   const onOpenCamera = () => {
-    // Navigate to your selfie capture screen
-    router.push("/Carrier/FacialSelfie");
+    // Navigate to the ScanningId screen
+    router.push("/Carrier/ScanningId");
   };
 
   return (
