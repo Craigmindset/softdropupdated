@@ -61,7 +61,7 @@ export function IntroSlider({ onDone }: { onDone?: () => void }) {
       <View style={styles.footer}>
         <IntroPagination total={INTRO_SLIDES.length} current={currentIndex} />
         <Pressable
-          style={[styles.button, { backgroundColor: "black" }]}
+          style={[styles.button, { backgroundColor: "#21C15A" }]}
           onPress={onGetStarted}
         >
           <Text style={styles.buttonText}>Get Started</Text>

@@ -17,8 +17,9 @@ function ScreenDivision() {
   const handleOptionPress = (option: string) => {
     if (option === "send") {
       router.push("/");
+    } else if (option === "receive") {
+      router.push({ pathname: "/Receiver/Expect" });
     } else {
-      // TODO: Implement navigation for other options
       console.log("Selected option:", option);
     }
   };
