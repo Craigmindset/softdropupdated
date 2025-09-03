@@ -37,6 +37,11 @@ export default function RootLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen
+          name="Carrier/IDSelection"
+          options={{ headerShown: false }}
+        />
+        ;
+        <Stack.Screen
           name="Carrier/EnterOtp"
           options={{ headerShown: false }}
         />

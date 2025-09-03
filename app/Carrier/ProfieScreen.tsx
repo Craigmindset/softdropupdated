@@ -86,7 +86,7 @@ const ProfileScreen = () => {
         {/* Proceed Button */}
         <TouchableOpacity
           style={styles.proceedBtn}
-          onPress={() => router.push("/Carrier/FacialSelfie")}
+          onPress={() => router.push("/Carrier/IDSelection")}
         >
           <Text style={styles.proceedBtnText}>Proceed</Text>
         </TouchableOpacity>
