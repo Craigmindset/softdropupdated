@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import MapView, { PROVIDER_GOOGLE, Marker } from "react-native-maps";
 import { StatusBar } from "expo-status-bar";
 import { FontAwesome } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DRAWER_MIN_HEIGHT = SCREEN_HEIGHT * 0.6;
@@ -126,6 +127,8 @@ export default function TrackBoard() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const router = useRouter();
+  const mapRef = useRef<MapView | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -141,6 +144,20 @@ export default function TrackBoard() {
       setLoading(false);
     })();
   }, []);
+
+  // Center map on user location whenever it changes
+  useEffect(() => {
+    if (userLocation && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          ...userLocation,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        },
+        500
+      );
+    }
+  }, [userLocation]);
 
   const translateY = useSharedValue(0);
   const maxTranslate = DRAWER_MIN_HEIGHT - 80;
@@ -199,6 +216,7 @@ export default function TrackBoard() {
       {/* Map */}
       <View style={StyleSheet.absoluteFillObject}>
         <MapView
+          ref={mapRef}
           style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
@@ -210,7 +228,7 @@ export default function TrackBoard() {
             <Marker
               coordinate={userLocation}
               title="You are here"
-              pinColor="#14532d"
+              pinColor="red"
             />
           )}
         </MapView>
@@ -345,11 +363,9 @@ export default function TrackBoard() {
             <TouchableOpacity
               style={styles.scanButton}
               activeOpacity={0.7}
-              onPress={() => {
-                /* TODO: handle scan */
-              }}
+              onPress={() => router.push("/Receiver/ScanItem")}
             >
-              <Text style={styles.scanButtonText}>Scan to Confirm</Text>
+              <Text style={styles.scanButtonText}>Confirm Item</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
