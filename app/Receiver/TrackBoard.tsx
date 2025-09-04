@@ -127,6 +127,12 @@ export default function TrackBoard() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: 6.5244,
+    longitude: 3.3792,
+    latitudeDelta: 0.05,
+    longitudeDelta: 0.05,
+  });
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
 
@@ -147,15 +153,22 @@ export default function TrackBoard() {
 
   // Center map on user location whenever it changes
   useEffect(() => {
-    if (userLocation && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          ...userLocation,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        },
-        500
-      );
+    if (userLocation) {
+      setMapRegion({
+        ...userLocation,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          {
+            ...userLocation,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          },
+          500
+        );
+      }
     }
   }, [userLocation]);
 
@@ -185,13 +198,6 @@ export default function TrackBoard() {
     height: DRAWER_MIN_HEIGHT,
   }));
 
-  const region = {
-    latitude: 6.5244,
-    longitude: 3.3792,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  };
-
   if (loading) {
     return (
       <View style={styles.center}>
@@ -219,7 +225,8 @@ export default function TrackBoard() {
           ref={mapRef}
           style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
-          initialRegion={region}
+          region={mapRegion}
+          onRegionChangeComplete={setMapRegion}
           customMapStyle={darkMapStyle}
           showsUserLocation
           showsMyLocationButton
