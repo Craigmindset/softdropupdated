@@ -21,6 +21,7 @@ import {
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { StatusBar } from "expo-status-bar";
 import { FontAwesome } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DRAWER_MIN_HEIGHT = SCREEN_HEIGHT * 0.6;
@@ -221,7 +222,7 @@ export default function TrackBoard() {
                   color="#fff"
                   style={styles.infoIcon}
                 />
-                <Text style={styles.profilePhone}>+1 234 567 8901</Text>
+                <Text style={styles.profilePhone}>08012345678</Text>
               </View>
               <View style={styles.infoRow}>
                 <FontAwesome
@@ -234,6 +235,58 @@ export default function TrackBoard() {
                 <Text style={styles.ratingValue}>4.8</Text>
               </View>
             </View>
+          </View>
+          {/* Divider */}
+          <View style={styles.divider} />
+          {/* Package Details Section */}
+          <View style={styles.packageHeaderRow}>
+            <FontAwesome
+              name="archive"
+              size={16}
+              color="#14532d"
+              style={styles.packageIcon}
+            />
+            <Text style={styles.packageTitle}>Package Details</Text>
+          </View>
+          <View style={styles.packageInfoRow}>
+            <FontAwesome
+              name="id-card"
+              size={16}
+              color={styles.packageIcon.color}
+              style={styles.packageIcon}
+            />
+            <Text style={styles.packageLabel}>Deliver-ID:</Text>
+            <Text style={styles.packageValue}>SD1234567890</Text>
+          </View>
+          <View style={styles.packageInfoRow}>
+            <FontAwesome
+              name="user-circle"
+              size={16}
+              color={styles.packageIcon.color}
+              style={styles.packageIcon}
+            />
+            <Text style={styles.packageLabel}>Sender Name:</Text>
+            <Text style={styles.packageValue}>Mathew Wealth</Text>
+          </View>
+          <View style={styles.packageInfoRow}>
+            <MaterialCommunityIcons
+              name="motorbike"
+              size={16}
+              color={styles.packageIcon.color}
+              style={styles.packageIcon}
+            />
+            <Text style={styles.packageLabel}>Item Type:</Text>
+            <Text style={styles.packageValue}>Fragile</Text>
+          </View>
+          <View style={styles.packageInfoRow}>
+            <MaterialCommunityIcons
+              name="piggy-bank"
+              size={16}
+              color={styles.packageIcon.color}
+              style={styles.packageIcon}
+            />
+            <Text style={styles.packageLabel}>Paid Status:</Text>
+            <Text style={styles.packageValue}>Escrow</Text>
           </View>
           {/* ...drawer content here... */}
         </Animated.View>
@@ -322,5 +375,49 @@ const styles = StyleSheet.create({
   },
   infoIcon: {
     marginRight: 6,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e0e0e0",
+    marginVertical: 16,
+    width: "100%",
+  },
+  packageHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  packageIcon: {
+    marginRight: 2,
+    color: "#f5f5f7", // smoky white
+  },
+  packageTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#dcebe2ff",
+    marginLeft: 4,
+  },
+  packageInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+    width: "100%",
+    // marginLeft removed for flush alignment
+  },
+  packageLabel: {
+    fontSize: 14,
+    color: "#444",
+    marginRight: 2,
+    minWidth: 190, // consistent for all
+    flexShrink: 1,
+    textAlign: "left",
+  },
+  packageValue: {
+    fontSize: 14,
+    color: "#222",
+    fontWeight: "bold",
+    flexShrink: 1,
+    textAlign: "right",
   },
 });
