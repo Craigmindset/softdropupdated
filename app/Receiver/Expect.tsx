@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import LottieView from "lottie-react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 
 const steps = [
   "Enter your phone number to continue",
@@ -15,7 +16,13 @@ const steps = [
 export default function Expect() {
   const router = useRouter();
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { marginTop: 30, backgroundColor: "#fff", flex: 1 },
+      ]}
+    >
+      <StatusBar style="dark" backgroundColor="#fff" />
       <LottieView
         source={require("../../assets/images/Box - 1748984413113.json")}
         autoPlay
@@ -81,7 +88,7 @@ const styles = StyleSheet.create({
   bulletRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   bulletDot: {
     width: 8,

@@ -99,6 +99,22 @@ export default function RootLayout() {
             name="Receiver/Registration"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="Receiver/EnterPin"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Receiver/Review"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Receiver/ScanItem"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Receiver/Success"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>

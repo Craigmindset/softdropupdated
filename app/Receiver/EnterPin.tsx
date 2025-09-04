@@ -44,6 +44,29 @@ const EnterPin = () => {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: "#21C15A",
+            borderRadius: 10,
+            marginBottom: 24,
+            marginTop: 8,
+            padding: 12,
+            marginHorizontal: 8,
+            backgroundColor: "#F7FFF9",
+          }}
+        >
+          <Text
+            style={{
+              color: "#222",
+              fontSize: 15,
+              textAlign: "center",
+            }}
+          >
+            Kindly insert the receiver PIN sent to you by the sender. Ensure you
+            keep your PIN private to avoid breach.
+          </Text>
+        </View>
         <Text style={styles.title}>Receiver PIN</Text>
         {/* Optionally show phone number */}
         {phone && (
@@ -151,6 +174,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 32, // Added marginBottom for spacing
   },
   ctaDisabled: { opacity: 0.6 },
   ctaText: { color: "#FFF", fontSize: 16, fontWeight: "700" },

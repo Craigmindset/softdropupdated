@@ -3,12 +3,16 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { router } from "expo-router";
 import LottieView from "lottie-react-native";
 import {
+  BackHandler,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useEffect, useRef } from "react";
 
 function ScreenDivision() {
   console.log("ScreenDivision component rendered");
@@ -23,6 +27,32 @@ function ScreenDivision() {
       console.log("Selected option:", option);
     }
   };
+
+  const backPressCount = useRef(0);
+  useEffect(() => {
+    const onBackPress = () => {
+      if (backPressCount.current === 0) {
+        backPressCount.current = 1;
+        if (Platform.OS === "android") {
+          ToastAndroid.show("Press back again to exit", ToastAndroid.SHORT);
+        }
+        setTimeout(() => {
+          backPressCount.current = 0;
+        }, 2000);
+        return true;
+      } else {
+        BackHandler.exitApp();
+        return true;
+      }
+    };
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress
+    );
+    return () => {
+      backHandler.remove();
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
