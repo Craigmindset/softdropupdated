@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   bulletRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
   bulletDot: {
     width: 8,

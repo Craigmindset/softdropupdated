@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 
@@ -22,62 +23,73 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="SplashScreen" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="IntroScreen"
-          options={{ headerShown: false, statusBarStyle: "dark" }}
-        />
-        <Stack.Screen name="ScreenDivision" options={{ headerShown: false }} />
-        <Stack.Screen name="Carrier/Login" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="Carrier/Registration"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/IDSelection"
-          options={{ headerShown: false }}
-        />
-        ;
-        <Stack.Screen
-          name="Carrier/EnterOtp"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="Carrier/Success" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="Carrier/CreatePassword"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/ScanningId"
-          options={{ headerShown: false }}
-        />
-        ;
-        <Stack.Screen name="Carrier/Expect" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="Carrier/EnterBvn"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/ProfieScreen"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/FacialSelfie"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/ScanningScreen"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Carrier/AccountSuccessful"
-          options={{ headerShown: false }}
-        />
-      </Stack>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="SplashScreen" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="IntroScreen"
+            options={{ headerShown: false, statusBarStyle: "dark" }}
+          />
+          <Stack.Screen
+            name="ScreenDivision"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen name="Carrier/Login" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Carrier/Registration"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/IDSelection"
+            options={{ headerShown: false }}
+          />
+          ;
+          <Stack.Screen
+            name="Carrier/EnterOtp"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/Success"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/CreatePassword"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/ScanningId"
+            options={{ headerShown: false }}
+          />
+          ;
+          <Stack.Screen
+            name="Carrier/Expect"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/EnterBvn"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/ProfieScreen"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/FacialSelfie"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/ScanningScreen"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Carrier/AccountSuccessful"
+            options={{ headerShown: false }}
+          />
+        </Stack>
+        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
