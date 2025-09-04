@@ -87,8 +87,12 @@ export default function RootLayout() {
             name="Carrier/AccountSuccessful"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="Receiver/TrackBoard"
+            options={{ headerShown: false }}
+          />
         </Stack>
-        <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+        <StatusBar style="light" />
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
-import * as Location from 'expo-location';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Dimensions,
+  ActivityIndicator,
+} from "react-native";
+import * as Location from "expo-location";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,11 +18,103 @@ import {
   PanGestureHandlerGestureEvent,
 } from "react-native-gesture-handler";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import { StatusBar } from "expo-status-bar";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DRAWER_MIN_HEIGHT = SCREEN_HEIGHT * 0.6;
 const DRAWER_MAX_HEIGHT = SCREEN_HEIGHT * 0.95;
 const MAP_MIN_HEIGHT = SCREEN_HEIGHT * 0.4;
+
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#212121" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+  {
+    featureType: "administrative",
+    elementType: "geometry",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "administrative.country",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9e9e9e" }],
+  },
+  {
+    featureType: "administrative.land_parcel",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#bdbdbd" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#181818" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#1b1b1b" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#2c2c2c" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#8a8a8a" }],
+  },
+  {
+    featureType: "road.arterial",
+    elementType: "geometry",
+    stylers: [{ color: "#373737" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#3c3c3c" }],
+  },
+  {
+    featureType: "road.highway.controlled_access",
+    elementType: "geometry",
+    stylers: [{ color: "#4e4e4e" }],
+  },
+  {
+    featureType: "road.local",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#000000" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#3d3d3d" }],
+  },
+];
 
 export default function TrackBoard() {
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
@@ -25,7 +123,7 @@ export default function TrackBoard() {
   useEffect(() => {
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
-      setHasLocationPermission(status === 'granted');
+      setHasLocationPermission(status === "granted");
       setLoading(false);
     })();
   }, []);
@@ -56,14 +154,6 @@ export default function TrackBoard() {
     height: DRAWER_MIN_HEIGHT,
   }));
 
-  // ✅ Clamp to a minimum and remove zIndex:-1 issues
-  const animatedMapStyle = useAnimatedStyle(() => {
-    const h = SCREEN_HEIGHT - (DRAWER_MIN_HEIGHT - translateY.value);
-    return {
-      height: Math.max(MAP_MIN_HEIGHT, h),
-    };
-  });
-
   const region = {
     latitude: 6.5244,
     longitude: 3.3792,
@@ -73,7 +163,7 @@ export default function TrackBoard() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#007AFF" />
         <Text>Requesting location permission...</Text>
       </View>
@@ -82,7 +172,7 @@ export default function TrackBoard() {
 
   if (!hasLocationPermission) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <Text>Location permission is required to show the map.</Text>
       </View>
     );
@@ -90,16 +180,18 @@ export default function TrackBoard() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" translucent backgroundColor="transparent" />
       {/* Map area */}
-      <Animated.View style={[styles.mapContainer, animatedMapStyle]}>
+      <View style={StyleSheet.absoluteFillObject}>
         <MapView
-          style={StyleSheet.absoluteFillObject} // ✅ fill parent
+          style={StyleSheet.absoluteFillObject}
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
+          customMapStyle={darkMapStyle}
           showsUserLocation
           showsMyLocationButton
         />
-      </Animated.View>
+      </View>
 
       {/* Drawer */}
       <PanGestureHandler onGestureEvent={gestureHandler}>
@@ -116,21 +208,12 @@ export default function TrackBoard() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
 
-  // ✅ No negative zIndex; use absolute fill
-  mapContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#e6f0fa",
-  },
-
   drawer: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#fff",
+    backgroundColor: "#1abc34", // green
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     shadowColor: "#000",
