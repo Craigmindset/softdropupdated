@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import * as Location from "expo-location";
 import Animated, {
@@ -19,6 +20,7 @@ import {
 } from "react-native-gesture-handler";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { StatusBar } from "expo-status-bar";
+import { FontAwesome } from "@expo/vector-icons";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const DRAWER_MIN_HEIGHT = SCREEN_HEIGHT * 0.6;
@@ -192,12 +194,47 @@ export default function TrackBoard() {
           showsMyLocationButton
         />
       </View>
-
       {/* Drawer */}
       <PanGestureHandler onGestureEvent={gestureHandler}>
         <Animated.View style={[styles.drawer, animatedDrawerStyle]}>
           <View style={styles.drawerHandle} />
-          <Text style={styles.drawerTitle}>Delivery Details</Text>
+          {/* Carrier Profile Section */}
+          <View style={styles.profileRow}>
+            <Image
+              source={require("../../assets/images/placeholder-avatar.png")}
+              style={styles.avatar}
+            />
+            <View style={styles.profileInfo}>
+              <View style={styles.infoRow}>
+                <FontAwesome
+                  name="user"
+                  size={16}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.profileName}>John Doe</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <FontAwesome
+                  name="phone"
+                  size={16}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.profilePhone}>+1 234 567 8901</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <FontAwesome
+                  name="star"
+                  size={16}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.ratingLabel}>Rating: </Text>
+                <Text style={styles.ratingValue}>4.8</Text>
+              </View>
+            </View>
+          </View>
           {/* ...drawer content here... */}
         </Animated.View>
       </PanGestureHandler>
@@ -207,7 +244,6 @@ export default function TrackBoard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-
   drawer: {
     position: "absolute",
     left: 0,
@@ -237,5 +273,54 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 16,
     textAlign: "center",
+  },
+  profileRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    marginRight: 32, // increased space between avatar and profile info
+    backgroundColor: "#fff",
+  },
+  profileInfo: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  profilePhone: {
+    fontSize: 14,
+    color: "#e0e0e0",
+    marginTop: 2,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
+  ratingLabel: {
+    fontSize: 13,
+    color: "#e0e0e0",
+  },
+  ratingValue: {
+    fontSize: 13,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  infoIcon: {
+    marginRight: 6,
   },
 });
