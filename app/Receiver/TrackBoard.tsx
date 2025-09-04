@@ -1,5 +1,6 @@
-import React from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
+import * as Location from 'expo-location';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,6 +19,17 @@ const DRAWER_MAX_HEIGHT = SCREEN_HEIGHT * 0.95;
 const MAP_MIN_HEIGHT = SCREEN_HEIGHT * 0.4;
 
 export default function TrackBoard() {
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      setHasLocationPermission(status === 'granted');
+      setLoading(false);
+    })();
+  }, []);
+
   const translateY = useSharedValue(0);
   const maxTranslate = DRAWER_MIN_HEIGHT - 80;
 
@@ -32,11 +44,10 @@ export default function TrackBoard() {
         translateY.value = nextY;
       },
       onEnd: () => {
-        if (translateY.value > maxTranslate / 2) {
-          translateY.value = withSpring(maxTranslate);
-        } else {
-          translateY.value = withSpring(0);
-        }
+        translateY.value =
+          translateY.value > maxTranslate / 2
+            ? withSpring(maxTranslate)
+            : withSpring(0);
       },
     });
 
@@ -45,12 +56,14 @@ export default function TrackBoard() {
     height: DRAWER_MIN_HEIGHT,
   }));
 
-  const animatedMapStyle = useAnimatedStyle(() => ({
-    height: SCREEN_HEIGHT - (DRAWER_MIN_HEIGHT - translateY.value),
-    zIndex: -1,
-  }));
+  // ✅ Clamp to a minimum and remove zIndex:-1 issues
+  const animatedMapStyle = useAnimatedStyle(() => {
+    const h = SCREEN_HEIGHT - (DRAWER_MIN_HEIGHT - translateY.value);
+    return {
+      height: Math.max(MAP_MIN_HEIGHT, h),
+    };
+  });
 
-  // Default map region (Lagos, Nigeria)
   const region = {
     latitude: 6.5244,
     longitude: 3.3792,
@@ -58,19 +71,36 @@ export default function TrackBoard() {
     longitudeDelta: 0.05,
   };
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text>Requesting location permission...</Text>
+      </View>
+    );
+  }
+
+  if (!hasLocationPermission) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Location permission is required to show the map.</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Map area */}
-      <Animated.View style={[styles.map, animatedMapStyle]}>
+      <Animated.View style={[styles.mapContainer, animatedMapStyle]}>
         <MapView
-          style={{ flex: 1 }}
+          style={StyleSheet.absoluteFillObject} // ✅ fill parent
           provider={PROVIDER_GOOGLE}
           initialRegion={region}
           showsUserLocation
           showsMyLocationButton
-          // Google API key is set in app.json or via .env for native builds
         />
       </Animated.View>
+
       {/* Drawer */}
       <PanGestureHandler onGestureEvent={gestureHandler}>
         <Animated.View style={[styles.drawer, animatedDrawerStyle]}>
@@ -84,17 +114,17 @@ export default function TrackBoard() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  map: {
-    width: "100%",
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  // ✅ No negative zIndex; use absolute fill
+  mapContainer: {
     position: "absolute",
     top: 0,
     left: 0,
+    right: 0,
     backgroundColor: "#e6f0fa",
   },
+
   drawer: {
     position: "absolute",
     left: 0,
