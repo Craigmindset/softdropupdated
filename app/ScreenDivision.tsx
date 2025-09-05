@@ -65,7 +65,10 @@ function ScreenDivision() {
       />
       <Text style={styles.title}>What would you like to do today?</Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => router.push("/")}>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => router.push("/Sender/Login")}
+      >
         <Text style={styles.buttonText}> Send a parcel</Text>
       </TouchableOpacity>
 

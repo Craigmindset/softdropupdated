@@ -19,7 +19,7 @@ export default function Expect() {
     <View
       style={[
         styles.container,
-        { marginTop: 30, backgroundColor: "#fff", flex: 1 },
+        { marginTop: 0, backgroundColor: "#fff", flex: 1 },
       ]}
     >
       <StatusBar style="dark" backgroundColor="#fff" />

@@ -115,6 +115,31 @@ export default function RootLayout() {
             name="Receiver/Success"
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="Sender/Login" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Sender/Registration"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Sender/EnterOtp"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Sender/Success"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Sender/Profile"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Sender/CreatePassword"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Sender/AccountSuccessful"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>
