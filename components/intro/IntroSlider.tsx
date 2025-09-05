@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useRef, useState } from "react";
 import {
   FlatList,
@@ -47,6 +48,7 @@ export function IntroSlider({ onDone }: { onDone?: () => void }) {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" backgroundColor="#fff" />
       <FlatList
         ref={slidesRef}
         data={INTRO_SLIDES}
