@@ -167,13 +167,14 @@ const TEXT_DARK = "#222222";
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#FFFFFF" },
   container: { flex: 1, paddingHorizontal: 20, paddingBottom: 24 },
-  topBar: { height: 44, justifyContent: "center" },
+  topBar: { height: 94, color: "#000000", justifyContent: "center" },
   backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 50,
   },
   backIcon: { fontSize: 20, color: TEXT_DARK },
   title: {

@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   footer: {
     position: "absolute",
-    bottom: 40,
+    bottom: 80,
     fontSize: 12,
     textAlign: "center",
   },

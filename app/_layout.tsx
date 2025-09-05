@@ -140,6 +140,7 @@ export default function RootLayout() {
             name="Sender/AccountSuccessful"
             options={{ headerShown: false }}
           />
+          <Stack.Screen name="(Sender tabs)" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>

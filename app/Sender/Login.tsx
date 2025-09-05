@@ -33,22 +33,23 @@ const Login = () => {
     [phone, password]
   );
 
+  const router = useRouter();
+
   const submit = () => {
     if (!canSubmit) return;
     console.log("Login payload:", { phone, password });
     // TODO: replace with your login handler
+    router.replace("/(Sender tabs)/Home");
   };
-
-  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.container}>
         {/* Back arrow */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { marginTop: 32 }]}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace("/ScreenDivision")}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.backBtn}
           >
