@@ -43,7 +43,7 @@ const Login = () => {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.container}>
         {/* Back arrow */}
         <View style={styles.topBar}>

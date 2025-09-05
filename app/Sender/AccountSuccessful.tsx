@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import LottieView from "lottie-react-native";
 import { useRouter } from "expo-router";
+import { StatusBar } from "react-native";
 
 export default function AccountSuccessful() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export default function AccountSuccessful() {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <LottieView
         source={require("../../assets/images/result page success motion design.json")}
         autoPlay

@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StatusBar,
 } from "react-native";
 
 const CreatePassword = () => {
@@ -37,6 +38,7 @@ const CreatePassword = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       {/* Title */}
       <Text style={styles.title}>Create Password</Text>
 

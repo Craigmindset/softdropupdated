@@ -233,8 +233,18 @@ export default function Profile() {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.header}>
-            <View style={styles.titleRow}>
+          <View
+            style={[
+              styles.header,
+              { alignItems: "center", justifyContent: "center" },
+            ]}
+          >
+            <View
+              style={[
+                styles.titleRow,
+                { justifyContent: "center", alignItems: "center" },
+              ]}
+            >
               <MaterialCommunityIcons
                 name="account-circle"
                 size={28}
@@ -248,46 +258,65 @@ export default function Profile() {
             </Text>
           </View>
 
-          {/* Names row */}
+          {/* First Name & Last Name */}
+          <View style={{ marginTop: 40 }}>
+            <View style={styles.row}>
+              <Text style={[styles.label, { flex: 1, marginRight: 8 }]}>
+                First Name
+              </Text>
+              <Text style={[styles.label, { flex: 1 }]}>Last Name</Text>
+            </View>
+          </View>
           <View style={styles.row}>
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <LabeledInput
-                label="First Name"
-                icon="account-outline"
+            <View
+              style={[
+                styles.inputRow,
+                {
+                  flex: 1,
+                  marginRight: 8,
+                  borderColor: "#26303A",
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <TextInput
+                style={styles.input}
+                placeholder="First Name"
                 value={firstName}
                 onChangeText={setFirstName}
-                placeholder="e.g. Chinedu"
-                autoCapitalize="words"
-                error={firstNameError}
-                testID="first-name"
+                placeholderTextColor="#A7A7AD"
               />
             </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <LabeledInput
-                label="Last Name"
-                icon="account"
+            <View
+              style={[
+                styles.inputRow,
+                { flex: 1, borderColor: "#26303A", borderWidth: 1 },
+              ]}
+            >
+              <TextInput
+                style={styles.input}
+                placeholder="Last Name"
                 value={lastName}
                 onChangeText={setLastName}
-                placeholder="e.g. Okoro"
-                autoCapitalize="words"
-                error={lastNameError}
-                testID="last-name"
+                placeholderTextColor="#A7A7AD"
               />
             </View>
           </View>
 
           {/* Email */}
-          <LabeledInput
-            label="Email"
-            icon="email-outline"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="e.g. you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            error={emailError}
-            testID="email"
-          />
+          <View style={{ marginTop: 14 }}>
+            <LabeledInput
+              label="Email"
+              icon="email-outline"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="e.g. you@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={emailError}
+              testID="email"
+            />
+          </View>
 
           {/* Phone (read-only from params) */}
           <LabeledInput
@@ -399,6 +428,7 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 13,
     marginBottom: 8,
+    marginTop: 4,
   },
   inputRow: {
     flexDirection: "row",
