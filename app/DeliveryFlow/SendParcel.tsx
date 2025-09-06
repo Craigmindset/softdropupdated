@@ -39,7 +39,6 @@ const ITEM_OPTIONS: ItemOpt[] = [
   { key: "gadget", label: "Gadget", icon: "cellphone" },
 ];
 
-// ⬇️ Use your asset. Adjust the relative path if needed.
 const INTL_IMG = require("../../assets/images/international.png");
 
 const SendParcel: React.FC = () => {
@@ -53,9 +52,18 @@ const SendParcel: React.FC = () => {
   const [images, setImages] = useState<string[]>([]);
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
+
   const [validateReceiver, setValidateReceiver] = useState(false);
   const [deliveryType, setDeliveryType] = useState("");
   const [showDeliverySheet, setShowDeliverySheet] = useState(false);
+
+  // NEW: plain text locations (no Google APIs)
+  const [senderLocation, setSenderLocation] = useState("");
+  const [receiverLocation, setReceiverLocation] = useState("");
+
+  // Enable Next only when both locations are provided
+  const ready =
+    senderLocation.trim().length > 0 && receiverLocation.trim().length > 0;
 
   const routes = useMemo(
     () => [
@@ -82,6 +90,12 @@ const SendParcel: React.FC = () => {
   const pickType = (opt: ItemOpt) => {
     setItemType(opt.label);
     setShowTypeSheet(false);
+  };
+
+  const goNext = () => {
+    if (!ready) return;
+    // TODO: store senderLocation & receiverLocation or pass via route params
+    router.push("/DeliveryFlow/DeliveryMap");
   };
 
   return (
@@ -384,9 +398,52 @@ const SendParcel: React.FC = () => {
                 </TouchableOpacity>
                 <Text style={styles.star}>*</Text>
               </View>
+              <View style={styles.divider} />
+
+              {/* ── NEW: Sender & Receiver Location (plain inputs) ── */}
+              <Text style={styles.label}>Sender location</Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  placeholder="Enter sender location"
+                  placeholderTextColor={COLOR.sub}
+                  value={senderLocation}
+                  onChangeText={setSenderLocation}
+                  style={[styles.input, { paddingRight: 40 }]}
+                />
+                <MCI
+                  name="map-marker-outline"
+                  size={18}
+                  color={COLOR.sub}
+                  style={styles.inputIcon}
+                />
+              </View>
+
+              <Text style={[styles.label, { marginTop: 6 }]}>
+                Receiver location
+              </Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  placeholder="Enter receiver location"
+                  placeholderTextColor={COLOR.sub}
+                  value={receiverLocation}
+                  onChangeText={setReceiverLocation}
+                  style={[styles.input, { paddingRight: 40 }]}
+                />
+                <MCI
+                  name="map-marker-outline"
+                  size={18}
+                  color={COLOR.sub}
+                  style={styles.inputIcon}
+                />
+              </View>
 
               {/* Next Button */}
-              <TouchableOpacity activeOpacity={0.9} style={styles.nextBtn}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.nextBtn, !ready && { opacity: 0.5 }]}
+                disabled={!ready}
+                onPress={goNext}
+              >
                 <Text style={styles.nextText}>Next</Text>
               </TouchableOpacity>
             </>
@@ -396,7 +453,7 @@ const SendParcel: React.FC = () => {
 
       {/* ---- Bottom Sheet: Item Type ---- */}
       <Modal
-        visible={showTypeSheet && route !== "intl"} // guard on intl
+        visible={showTypeSheet && route !== "intl"}
         transparent
         animationType="fade"
         onRequestClose={() => setShowTypeSheet(false)}
@@ -469,7 +526,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLOR.bg },
   container: { flex: 1, paddingHorizontal: 18 },
 
-  // header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -487,7 +543,6 @@ const styles = StyleSheet.create({
   },
   title: { color: COLOR.text, fontSize: 20, fontWeight: "700" },
 
-  // route tabs
   routeRow: { flexDirection: "row", gap: 12, marginBottom: 18 },
   routeCard: {
     flex: 1,
@@ -506,7 +561,6 @@ const styles = StyleSheet.create({
   routeLabel: { color: COLOR.sub, fontSize: 12, fontWeight: "600" },
   routeLabelActive: { color: COLOR.text },
 
-  // labels & inputs
   label: {
     color: COLOR.text,
     marginBottom: 8,
@@ -526,7 +580,6 @@ const styles = StyleSheet.create({
   },
   inputText: { fontSize: 14 },
 
-  // quantity
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   qtyBox: {
     flex: 1,
@@ -554,7 +607,6 @@ const styles = StyleSheet.create({
   },
   stepText: { color: COLOR.text, fontSize: 16, fontWeight: "800" },
 
-  // upload
   uploadHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -584,9 +636,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: COLOR.inputBg,
   },
-  divider: { height: 1, backgroundColor: COLOR.line, marginVertical: 14 },
+  divider: {
+    height: 0.5,
+    backgroundColor: "#A8FFB0", // updated from "yellow" to lite green
+    marginVertical: 14,
+    marginTop: 18,
+  },
 
-  // inputs
   inputWrap: {
     backgroundColor: COLOR.inputBg,
     borderRadius: 12,
@@ -602,13 +658,12 @@ const styles = StyleSheet.create({
   },
   inputIcon: { position: "absolute", right: 12, top: 14 },
 
-  // validate
   validateRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginTop: 8,
-    marginBottom: 18,
+    marginBottom: 6,
   },
   validateText: { color: COLOR.text, flex: 1 },
   checkbox: {
@@ -623,17 +678,15 @@ const styles = StyleSheet.create({
   },
   star: { color: COLOR.text, marginLeft: 4 },
 
-  // next
   nextBtn: {
     backgroundColor: COLOR.btn,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 18,
   },
   nextText: { color: "#03312A", fontWeight: "800", fontSize: 16 },
 
-  // bottom sheet
   sheetBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -669,6 +722,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 8,
   },
+
   optionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   optCard: {
     width: "47%",
@@ -695,7 +749,6 @@ const styles = StyleSheet.create({
   optLabel: { color: COLOR.sub, fontWeight: "600" },
   optLabelActive: { color: COLOR.text },
 
-  // Coming soon
   soonWrap: {
     alignItems: "center",
     justifyContent: "center",
