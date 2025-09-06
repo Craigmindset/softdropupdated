@@ -141,6 +141,10 @@ export default function RootLayout() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="(Sender tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="DeliveryFlow/SendParcel"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>

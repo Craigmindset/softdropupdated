@@ -393,7 +393,7 @@ const Home = () => {
                     marginHorizontal: 2,
                   },
                 ]}
-                onPress={() => router.push("/")}
+                onPress={() => router.push("/DeliveryFlow/SendParcel")}
               >
                 <Entypo name="location-pin" size={20} color="orangered" />
                 <Text
@@ -422,32 +422,7 @@ const Home = () => {
                   },
                 ]}
               >
-                <FontAwesome name="cutlery" size={18} color="salmon" />
-                <Text
-                  style={{
-                    letterSpacing: -0.5,
-                    fontWeight: "bold",
-                    fontSize: 12,
-                    marginTop: 4,
-                  }}
-                >
-                  Soft-eat
-                </Text>
-                <Text style={{ fontSize: 8, marginTop: 0 }}>Food Request</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.gridItem,
-                  {
-                    flexDirection: "column",
-                    alignItems: "center",
-                    flex: 1,
-                    marginHorizontal: 2,
-                  },
-                ]}
-              >
-                <MaterialIcons name="inbox" size={20} color="gold" />
+                <MaterialIcons name="inbox" size={20} color="tomato" />
                 <Text
                   style={{
                     letterSpacing: -0.5,
@@ -487,6 +462,30 @@ const Home = () => {
                 <Text style={{ fontSize: 8, marginTop: 0 }}>
                   Schdule a Pickup
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.gridItem,
+                  {
+                    flexDirection: "column",
+                    alignItems: "center",
+                    flex: 1,
+                    marginHorizontal: 2,
+                  },
+                ]}
+              >
+                <FontAwesome name="cutlery" size={18} color="salmon" />
+                <Text
+                  style={{
+                    letterSpacing: -0.5,
+                    fontWeight: "bold",
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}
+                >
+                  Soft-eat
+                </Text>
+                <Text style={{ fontSize: 8, marginTop: 0 }}>Food Request</Text>
               </TouchableOpacity>
             </View>
 
@@ -777,10 +776,10 @@ const Home = () => {
                       marginTop: 4,
                     }}
                   >
-                    Flight
+                    International
                   </Text>
                   <Text style={{ fontSize: 8, marginTop: 0 }}>
-                    Flight Booking
+                    Global Delivery
                   </Text>
                 </TouchableOpacity>
 
