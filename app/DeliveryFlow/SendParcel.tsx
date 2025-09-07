@@ -1,5 +1,6 @@
 // SendParcel.tsx
 import React, { useMemo, useState } from "react";
+import * as Location from "expo-location";
 import {
   SafeAreaView,
   ScrollView,
@@ -487,12 +488,42 @@ const SendParcel: React.FC = () => {
                   onChangeText={setSenderLocation}
                   style={[styles.input, { paddingRight: 40 }]}
                 />
-                <MCI
-                  name="map-marker-outline"
-                  size={18}
-                  color={COLOR.sub}
+                <TouchableOpacity
                   style={styles.inputIcon}
-                />
+                  onPress={async () => {
+                    try {
+                      let { status } =
+                        await Location.requestForegroundPermissionsAsync();
+                      if (status !== "granted") {
+                        Alert.alert(
+                          "Permission denied",
+                          "Location permission is required to autofill your address."
+                        );
+                        return;
+                      }
+                      let loc = await Location.getCurrentPositionAsync({});
+                      let geocode = await Location.reverseGeocodeAsync(
+                        loc.coords
+                      );
+                      if (geocode && geocode.length > 0) {
+                        const { name, street, city, region, country } =
+                          geocode[0];
+                        const address = [name, street, city, region, country]
+                          .filter(Boolean)
+                          .join(", ");
+                        setSenderLocation(address);
+                      } else {
+                        setSenderLocation(
+                          `${loc.coords.latitude}, ${loc.coords.longitude}`
+                        );
+                      }
+                    } catch (err) {
+                      Alert.alert("Error", "Unable to get current location.");
+                    }
+                  }}
+                >
+                  <MCI name="map-marker-outline" size={18} color={COLOR.sub} />
+                </TouchableOpacity>
               </View>
 
               <Text style={[styles.label, { marginTop: 6 }]}>
