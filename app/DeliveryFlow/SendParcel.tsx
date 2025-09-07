@@ -1,6 +1,6 @@
-// SendParcel.tsx
+// app/DeliveryFlow/SendParcel.tsx
 import React, { useMemo, useState } from "react";
-import * as Location from "expo-location";
+// Removed expo-location here – handled in LocationInput.tsx
 import {
   SafeAreaView,
   ScrollView,
@@ -60,13 +60,8 @@ const SendParcel: React.FC = () => {
   const [deliveryType, setDeliveryType] = useState("");
   const [showDeliverySheet, setShowDeliverySheet] = useState(false);
 
-  // NEW: plain text locations (no Google APIs)
-  const [senderLocation, setSenderLocation] = useState("");
-  const [receiverLocation, setReceiverLocation] = useState("");
-
-  // Enable Next only when both locations are provided
-  const ready =
-    senderLocation.trim().length > 0 && receiverLocation.trim().length > 0;
+  // Next is always enabled now; locations are moved to LocationInput.tsx
+  const ready = true;
 
   const routes = useMemo(
     () => [
@@ -87,7 +82,6 @@ const SendParcel: React.FC = () => {
 
   const addMockImage = async () => {
     if (images.length >= 2) return;
-    // Request permission
     const permissionResult =
       await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
@@ -97,7 +91,6 @@ const SendParcel: React.FC = () => {
       );
       return;
     }
-    // Launch image picker
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -107,7 +100,6 @@ const SendParcel: React.FC = () => {
       setImages((p) => [...p, result.assets[0].uri]);
     }
   };
-  // Removed placeholder image logic. Only actual selected images are added.
 
   const pickType = (opt: ItemOpt) => {
     setItemType(opt.label);
@@ -115,50 +107,7 @@ const SendParcel: React.FC = () => {
   };
 
   const goNext = () => {
-    if (!ready) return;
-    // TODO: store senderLocation & receiverLocation or pass via route params
-    router.push("/DeliveryFlow/DeliveryMap");
-  };
-
-  const handlePickImage = async (index: number) => {
-    // Request media library permission
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission required",
-        "Please allow access to your storage to upload images from your Gallery."
-      );
-      return;
-    }
-
-    // Open gallery for image selection
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets?.length) {
-      const asset = result.assets[0];
-      const uri = asset.uri;
-      const fileType =
-        asset.type ||
-        (uri.split(".").pop() as string | undefined)?.toLowerCase();
-      const allowed = ["jpeg", "jpg", "png"];
-      const okType =
-        (fileType ? allowed.includes(fileType) : false) ||
-        (asset.mimeType && allowed.some((t) => asset.mimeType?.includes(t)));
-      const okSize = !asset.fileSize || asset.fileSize <= 5 * 1024 * 1024;
-
-      if (!okType || !okSize) {
-        Alert.alert("Invalid Image", "Accepted: JPEG/JPG/PNG. Max size: 5 MB.");
-        return;
-      }
-
-      const next = [...images];
-      next[index] = uri;
-      setImages(next);
-    }
+    router.push("/DeliveryFlow/LocationInput");
   };
 
   return (
@@ -476,76 +425,10 @@ const SendParcel: React.FC = () => {
                 </TouchableOpacity>
                 <Text style={styles.star}>*</Text>
               </View>
+
               <View style={styles.divider} />
 
-              {/* ── NEW: Sender & Receiver Location (plain inputs) ── */}
-              <Text style={styles.label}>Sender location</Text>
-              <View style={styles.inputWrap}>
-                <TextInput
-                  placeholder="Enter sender location"
-                  placeholderTextColor={COLOR.sub}
-                  value={senderLocation}
-                  onChangeText={setSenderLocation}
-                  style={[styles.input, { paddingRight: 40 }]}
-                />
-                <TouchableOpacity
-                  style={styles.inputIcon}
-                  onPress={async () => {
-                    try {
-                      let { status } =
-                        await Location.requestForegroundPermissionsAsync();
-                      if (status !== "granted") {
-                        Alert.alert(
-                          "Permission denied",
-                          "Location permission is required to autofill your address."
-                        );
-                        return;
-                      }
-                      let loc = await Location.getCurrentPositionAsync({});
-                      let geocode = await Location.reverseGeocodeAsync(
-                        loc.coords
-                      );
-                      if (geocode && geocode.length > 0) {
-                        const { name, street, city, region, country } =
-                          geocode[0];
-                        const address = [name, street, city, region, country]
-                          .filter(Boolean)
-                          .join(", ");
-                        setSenderLocation(address);
-                      } else {
-                        setSenderLocation(
-                          `${loc.coords.latitude}, ${loc.coords.longitude}`
-                        );
-                      }
-                    } catch (err) {
-                      Alert.alert("Error", "Unable to get current location.");
-                    }
-                  }}
-                >
-                  <MCI name="map-marker-outline" size={18} color={COLOR.sub} />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={[styles.label, { marginTop: 6 }]}>
-                Receiver location
-              </Text>
-              <View style={styles.inputWrap}>
-                <TextInput
-                  placeholder="Enter receiver location"
-                  placeholderTextColor={COLOR.sub}
-                  value={receiverLocation}
-                  onChangeText={setReceiverLocation}
-                  style={[styles.input, { paddingRight: 40 }]}
-                />
-                <MCI
-                  name="map-marker-outline"
-                  size={18}
-                  color={COLOR.sub}
-                  style={styles.inputIcon}
-                />
-              </View>
-
-              {/* Next Button */}
+              {/* Next Button -> LocationInput */}
               <TouchableOpacity
                 activeOpacity={0.9}
                 style={[styles.nextBtn, !ready && { opacity: 0.5 }]}
@@ -761,7 +644,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 0.5,
-    backgroundColor: "#A8FFB0", // updated from "yellow" to lite green
+    backgroundColor: "#A8FFB0",
     marginVertical: 14,
     marginTop: 18,
   },
