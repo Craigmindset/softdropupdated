@@ -11,9 +11,11 @@ import {
   StatusBar as RNStatusBar,
   Modal,
   Image,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons as MCI } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 
 const COLOR = {
   bg: "#0C1515",
@@ -82,10 +84,29 @@ const SendParcel: React.FC = () => {
     []
   );
 
-  const addMockImage = () => {
+  const addMockImage = async () => {
     if (images.length >= 2) return;
-    setImages((p) => [...p, "placeholder://img"]);
+    // Request permission
+    const permissionResult =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert(
+        "Permission required",
+        "Please allow access to your gallery to upload images."
+      );
+      return;
+    }
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setImages((p) => [...p, result.assets[0].uri]);
+    }
   };
+  // Removed placeholder image logic. Only actual selected images are added.
 
   const pickType = (opt: ItemOpt) => {
     setItemType(opt.label);
@@ -96,6 +117,47 @@ const SendParcel: React.FC = () => {
     if (!ready) return;
     // TODO: store senderLocation & receiverLocation or pass via route params
     router.push("/DeliveryFlow/DeliveryMap");
+  };
+
+  const handlePickImage = async (index: number) => {
+    // Request media library permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission required",
+        "Please allow access to your storage to upload images from your Gallery."
+      );
+      return;
+    }
+
+    // Open gallery for image selection
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets?.length) {
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const fileType =
+        asset.type ||
+        (uri.split(".").pop() as string | undefined)?.toLowerCase();
+      const allowed = ["jpeg", "jpg", "png"];
+      const okType =
+        (fileType ? allowed.includes(fileType) : false) ||
+        (asset.mimeType && allowed.some((t) => asset.mimeType?.includes(t)));
+      const okSize = !asset.fileSize || asset.fileSize <= 5 * 1024 * 1024;
+
+      if (!okType || !okSize) {
+        Alert.alert("Invalid Image", "Accepted: JPEG/JPG/PNG. Max size: 5 MB.");
+        return;
+      }
+
+      const next = [...images];
+      next[index] = uri;
+      setImages(next);
+    }
   };
 
   return (
@@ -238,7 +300,22 @@ const SendParcel: React.FC = () => {
                       style={[styles.thumb, has && { borderStyle: "solid" }]}
                     >
                       {has ? (
-                        <MCI name="image" size={22} color={COLOR.green} />
+                        <>
+                          <Image
+                            source={{ uri: has }}
+                            style={styles.thumbImage}
+                          />
+                          <TouchableOpacity
+                            style={styles.deleteIcon}
+                            onPress={() => {
+                              setImages((imgs) =>
+                                imgs.filter((_, idx) => idx !== i)
+                              );
+                            }}
+                          >
+                            <MCI name="close" size={18} color={COLOR.text} />
+                          </TouchableOpacity>
+                        </>
                       ) : null}
                     </View>
                   );
@@ -523,6 +600,21 @@ const SendParcel: React.FC = () => {
 export default SendParcel;
 
 const styles = StyleSheet.create({
+  thumbImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+    resizeMode: "cover",
+  },
+  deleteIcon: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 12,
+    padding: 2,
+    zIndex: 2,
+  },
   safe: { flex: 1, backgroundColor: COLOR.bg },
   container: { flex: 1, paddingHorizontal: 18 },
 
