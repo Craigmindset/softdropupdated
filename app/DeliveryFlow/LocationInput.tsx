@@ -99,9 +99,58 @@ const LocationInput: React.FC = () => {
     }
   };
 
-  const goNext = () => {
+  // Helper: geocode address to coordinates using Google Geocoding API
+  async function geocodeAddress(
+    address: string
+  ): Promise<{ latitude: number; longitude: number } | null> {
+    if (!address) return null;
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+      address
+    )}&key=${GOOGLE_MAPS_APIKEY}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (
+        data.results &&
+        data.results[0] &&
+        data.results[0].geometry &&
+        data.results[0].geometry.location
+      ) {
+        return {
+          latitude: data.results[0].geometry.location.lat,
+          longitude: data.results[0].geometry.location.lng,
+        };
+      }
+    } catch (e) {
+      // fallback
+    }
+    return null;
+  }
+
+  const goNext = async () => {
     if (!ready) return;
-    router.push("/DeliveryFlow/SelectCarrier");
+    // Geocode both addresses
+    const senderCoords = await geocodeAddress(senderLocation);
+    const receiverCoords = await geocodeAddress(receiverLocation);
+    if (!senderCoords || !receiverCoords) {
+      Alert.alert(
+        "Error",
+        "Could not geocode one or both addresses. Please check your input."
+      );
+      return;
+    }
+    // Pass both address and coordinates as params
+    router.push({
+      pathname: "/DeliveryFlow/SelectCarrier",
+      params: {
+        sender_location: senderLocation,
+        receiver_location: receiverLocation,
+        sender_latitude: senderCoords.latitude,
+        sender_longitude: senderCoords.longitude,
+        receiver_latitude: receiverCoords.latitude,
+        receiver_longitude: receiverCoords.longitude,
+      },
+    });
   };
 
   return (

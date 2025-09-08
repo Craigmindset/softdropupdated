@@ -5,629 +5,475 @@ import {
 } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
   Modal,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from "react-native-maps";
-// import { supabase } from "../lib/supabase";
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 
-const bikeMarkerIcon = require("../../assets/images/bike.png");
-
-// Helper to calculate distance between two lat/lng points (Haversine formula)
-function getDistanceFromLatLonInKm(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-) {
-  function deg2rad(deg: number) {
-    return deg * (Math.PI / 180);
-  }
-  const R = 6371; // Radius of the earth in km
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) *
-      Math.cos(deg2rad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; // Distance in km
-  return d;
-}
-
-// Helper to extract numeric minutes from eta string (e.g., '8 min' => 8)
-function parseEtaMinutes(eta: string): number {
-  const match = eta.match(/(\d+)/);
-  return match ? parseInt(match[1], 10) : 0;
-}
-
-// Helper to calculate price and ETA for each carrier
-function calculateCarrierPriceAndEta(carrier: any, distanceKm: number) {
-  // Base fares by carrier title
-  const baseFares: Record<string, number> = {
-    Carrier: 1500,
-    "Bicycle Carrier": 2500,
-    "Bike Carrier": 3500,
-    "Car Carrier": 4000,
-  };
-  const baseFare = baseFares[carrier.title] || 0;
-  const etaMinutes = parseEtaMinutes(carrier.eta);
-  const timeCost = 50 * etaMinutes;
-  const distanceCost = 100 * distanceKm;
-  const total = baseFare + timeCost + distanceCost;
-  return {
-    price: `₦${Math.round(total).toLocaleString()}`,
-    modalPrice: `₦${Math.round(total).toLocaleString()}`,
-    modalEta: `${etaMinutes} min`,
-  };
-}
-
-const GOOGLE_MAPS_API_KEY =
-  Constants?.expoConfig?.extra?.GOOGLE_PLACES_API_KEY ||
-  process.env.GOOGLE_PLACES_API_KEY;
-
-// Helper to fetch real-time ETA and route distance from Google Directions API
-async function fetchEtaAndDistance(
-  mode: string,
-  origin: { latitude: number; longitude: number },
-  destination: { latitude: number; longitude: number }
-) {
-  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=${mode}&key=${GOOGLE_MAPS_API_KEY}`;
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    if (
-      data.routes &&
-      data.routes[0] &&
-      data.routes[0].legs &&
-      data.routes[0].legs[0]
-    ) {
-      const duration = data.routes[0].legs[0].duration.value; // seconds
-      const distanceMeters = data.routes[0].legs[0].distance.value; // meters
-      return {
-        etaMin: Math.round(duration / 60),
-        distanceKm: distanceMeters / 1000,
-      };
-    }
-  } catch (e) {
-    // fallback
-  }
-  return { etaMin: null, distanceKm: null };
-}
-
-// Add mapping from carrier title to carriage_type
-const CARRIAGE_TYPE_MAP: Record<string, string> = {
-  Carrier: "Carrier",
-  "Bicycle Carrier": "Bicycle",
-  "Bike Carrier": "Bike",
-  "Car Carrier": "Car",
+/* ------------------------------------------------------------------ */
+/* Theme                                                               */
+/* ------------------------------------------------------------------ */
+const COLOR = {
+  bg: "#e8f5e9",
+  mapTop: "#ccc",
+  panel: "#00c2a8",
+  cardBg: "#fff",
+  text: "#000",
+  sub: "#555",
+  brand: "#2F7E5D",
 };
 
+type LatLng = { latitude: number; longitude: number };
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+const defaultCenter: LatLng = { latitude: 6.5244, longitude: 3.3792 }; // Lagos
+
+const kmBetween = (a: LatLng, b: LatLng) => {
+  const R = 6371;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const lat1 = (a.latitude * Math.PI) / 180;
+  const lat2 = (b.latitude * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+};
+
+const minutesFromKm = (km: number, kmh: number) =>
+  Math.max(1, Math.round((km / kmh) * 60)); // at least 1 min
+
+/* Offline speeds for local ETA fallback */
+const SPEEDS = { WALK: 4.5, BICYCLE: 15, TWO_WHEELER: 28, CAR: 35 };
+
+const priceFromKmMin = (km: number, min: number, base: number) =>
+  `₦${Math.round(base + km * 100 + min * 50).toLocaleString()}`;
+
+/* Decode Google encoded polyline */
+function decodePolyline(encoded: string): LatLng[] {
+  let points: LatLng[] = [];
+  let index = 0,
+    lat = 0,
+    lng = 0;
+
+  while (index < encoded.length) {
+    let b = 0,
+      shift = 0,
+      result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = result & 1 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = result & 1 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return points;
+}
+
+/* Key (uses the same extra/env pattern you had) */
+import { GOOGLE_MAPS_APIKEY } from "../../constants/Keys";
+
+/* Fetch route polyline:
+   1) Directions API v1
+   2) Fallback to Routes API v2
+*/
+async function fetchRoutePolyline(
+  origin: LatLng,
+  destination: LatLng
+): Promise<{ coords: LatLng[]; distanceKm?: number; etaMin?: number }> {
+  // -- Try classic Directions API (easier to enable)
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const route = data?.routes?.[0];
+    const leg = route?.legs?.[0];
+    if (route?.overview_polyline?.points) {
+      return {
+        coords: decodePolyline(route.overview_polyline.points),
+        distanceKm: leg ? leg.distance.value / 1000 : undefined,
+        etaMin: leg ? Math.round(leg.duration.value / 60) : undefined,
+      };
+    }
+  } catch {}
+
+  // -- Fallback: Routes API v2
+  try {
+    const res = await fetch(
+      "https://routes.googleapis.com/directions/v2:computeRoutes",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": String(GOOGLE_MAPS_APIKEY),
+          "X-Goog-FieldMask":
+            "routes.polyline.encodedPolyline,routes.distanceMeters,routes.duration",
+        },
+        body: JSON.stringify({
+          origin: { location: { latLng: origin } },
+          destination: { location: { latLng: destination } },
+          travelMode: "DRIVE",
+        }),
+      }
+    );
+    const data = await res.json();
+    const r = data?.routes?.[0];
+    const encoded = r?.polyline?.encodedPolyline;
+    if (encoded) {
+      return {
+        coords: decodePolyline(encoded),
+        distanceKm: r?.distanceMeters ? r.distanceMeters / 1000 : undefined,
+        etaMin: r?.duration
+          ? Math.round(Number(String(r.duration).replace("s", "")) / 60)
+          : undefined,
+      };
+    }
+  } catch {}
+
+  return { coords: [] };
+}
+
+/* ------------------------------------------------------------------ */
+/* Screen                                                              */
+/* ------------------------------------------------------------------ */
 export default function SelectCarrierScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // Use only the robust marker logic for map and polyline, remove senderLocation/receiverLocation legacy fallback
-  // Remove senderLocation and receiverLocation above, and use only senderMarker and receiverMarker everywhere for map and polyline
-
-  // Fix: parse all params as floats and check for valid numbers
-  function parseCoord(val: any): number | null {
-    const n = Number(val);
-    return isNaN(n) ? null : n;
-  }
-  const senderLat = parseCoord(params.sender_latitude ?? params.senderLat);
-  const senderLng = parseCoord(params.sender_longitude ?? params.senderLng);
-  const receiverLat = parseCoord(
-    params.receiver_latitude ?? params.receiverLat
-  );
-  const receiverLng = parseCoord(
-    params.receiver_longitude ?? params.receiverLng
-  );
-
-  // Only use marker if both lat/lng are valid numbers from params (inputted address)
-  // Never use device location for sender marker; fallback is a neutral default (Lagos center)
-  const senderMarker =
-    senderLat !== null && senderLng !== null
-      ? { latitude: senderLat, longitude: senderLng }
-      : { latitude: 6.5244, longitude: 3.3792 }; // Lagos center as fallback
-
-  // Same logic for receiver marker
-  const receiverMarker =
-    receiverLat !== null && receiverLng !== null
-      ? { latitude: receiverLat, longitude: receiverLng }
-      : { latitude: 6.5244, longitude: 3.3792 }; // Lagos center as fallback
-
-  // If either marker is missing, fallback to a default region
-  const initialRegion =
-    senderMarker && receiverMarker
-      ? {
-          latitude: (senderMarker.latitude + receiverMarker.latitude) / 2,
-          longitude: (senderMarker.longitude + receiverMarker.longitude) / 2,
-          latitudeDelta: 0.01, // Street-level zoom
-          longitudeDelta: 0.01, // Street-level zoom
-        }
-      : {
-          latitude: 6.6018,
-          longitude: 3.3515,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        };
-
-  const distanceKm =
-    senderMarker && receiverMarker
-      ? getDistanceFromLatLonInKm(
-          senderMarker.latitude,
-          senderMarker.longitude,
-          receiverMarker.latitude,
-          receiverMarker.longitude
-        )
-      : 0;
-
-  // Add state for real route distance
-  const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
-  const distanceText = routeDistanceKm
-    ? `${routeDistanceKm.toFixed(1)} km`
-    : `${distanceKm.toFixed(1)} km`;
-
-  // Modal state
-  const [isModalVisible, setModalVisible] = useState(false);
-  // Update modalCarrier state to include cardTitle
-  const [modalCarrier, setModalCarrier] = useState({
-    icon: null,
-    title: "",
-    price: "",
-    eta: "",
-    cardTitle: "", // <-- add this property
-  });
-
-  // When a carrier card is pressed, show modal with up-to-date info
-  // In handleCardPress, pass both the card's title and modalTitle
-  const handleCardPress = (carrier: any) => {
-    setModalCarrier({
-      ...carrier,
-      eta: carrier.modalEta,
-      modalEta: carrier.modalEta,
-      cardTitle: carrier.title, // always the card's title, e.g., 'Bike Carrier'
-      modalTitle: carrier.modalTitle, // can be 'Intra-city Delivery', but not used for mapping
-    });
-    setModalVisible(true);
+  const parse = (v: unknown): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
   };
 
-  // Pull to refresh state
-  const [refreshing, setRefreshing] = useState(false);
+  const origin = useMemo<LatLng>(() => {
+    const lat = parse(params.sender_latitude ?? params.senderLat);
+    const lng = parse(params.sender_longitude ?? params.senderLng);
+    return lat !== null && lng !== null
+      ? { latitude: lat, longitude: lng }
+      : defaultCenter;
+  }, [params]);
 
-  // Carrier data state
-  const [carriers, setCarriers] = useState([
-    {
-      icon: <MaterialCommunityIcons name="walk" size={24} color="#000" />,
-      title: "Carrier",
-      mode: "walking",
-      eta: "Loading",
-      price: "",
-      description: "Package delivery",
-      note: "Cheaper but longer delivery time",
-      modalIcon: (
-        <MaterialCommunityIcons
-          name="walk"
-          size={40}
-          color="#000"
-          style={{ alignSelf: "center", marginBottom: 10 }}
-        />
-      ),
-      modalTitle: "Intra-city Delivery",
-    },
-    {
-      icon: <FontAwesome5 name="bicycle" size={24} color="#d32f2f" />,
-      title: "Bicycle Carrier",
-      mode: "bicycling",
-      eta: "Loading",
-      price: "",
-      description: "Package delivery",
-      note: undefined,
-      modalIcon: (
-        <FontAwesome5
-          name="bicycle"
-          size={40}
-          color="#d32f2f"
-          style={{ alignSelf: "center", marginBottom: 10 }}
-        />
-      ),
-      modalTitle: "Intra-city Delivery",
-    },
-    {
-      icon: <FontAwesome5 name="motorcycle" size={24} color="#0288d1" />,
-      title: "Bike Carrier",
-      mode: "driving",
-      eta: "Loading",
-      price: "",
-      description: "Package delivery",
-      note: undefined,
-      modalIcon: (
-        <FontAwesome5
-          name="motorcycle"
-          size={40}
-          color="#0288d1"
-          style={{ alignSelf: "center", marginBottom: 10 }}
-        />
-      ),
-      modalTitle: "Intra-city Delivery",
-    },
-    {
-      icon: <FontAwesome5 name="car" size={24} color="#1565c0" />,
-      title: "Car Carrier",
-      mode: "driving",
-      eta: "Loading",
-      price: "",
-      description: "Package delivery",
-      note: undefined,
-      modalIcon: (
-        <FontAwesome5
-          name="car"
-          size={40}
-          color="#1565c0"
-          style={{ alignSelf: "center", marginBottom: 10 }}
-        />
-      ),
-      modalTitle: "Intra-city Delivery",
-    },
-  ]);
+  const destination = useMemo<LatLng>(() => {
+    const lat = parse(params.receiver_latitude ?? params.receiverLat);
+    const lng = parse(params.receiver_longitude ?? params.receiverLng);
+    return lat !== null && lng !== null
+      ? { latitude: lat, longitude: lng }
+      : defaultCenter;
+  }, [params]);
 
-  // Add state for online carriers
-  const [onlineCarriers, setOnlineCarriers] = useState<any[]>([]);
+  const hasBoth = useMemo(
+    () =>
+      !(
+        origin.latitude === defaultCenter.latitude &&
+        origin.longitude === defaultCenter.longitude
+      ) &&
+      !(
+        destination.latitude === defaultCenter.latitude &&
+        destination.longitude === defaultCenter.longitude
+      ),
+    [origin, destination]
+  );
 
-  // Fetch online carriers on mount and every 5 seconds
-  // useEffect(() => {
-  //   // Replace with local/mock data or other backend
-  // }, []);
+  /* Base great-circle distance (fallback for pill/ETAs) */
+  const crowKm = useMemo(
+    () => kmBetween(origin, destination),
+    [origin, destination]
+  );
 
-  // Fetch real-time ETA on mount or when sender/receiver changes
+  /* Route polyline + distance/eta (when APIs return) */
+  const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
+  const [routeKm, setRouteKm] = useState<number | null>(null);
+
+  /* Build simple, offline carrier cards (we can still show these) */
+  const effectiveKm = routeKm ?? crowKm;
+  const carriers = useMemo(
+    () => [
+      {
+        key: "walk",
+        icon: (
+          <MaterialCommunityIcons name="walk" size={24} color={COLOR.text} />
+        ),
+        title: "Carrier",
+        eta: `${minutesFromKm(effectiveKm, SPEEDS.WALK)} min`,
+        price: priceFromKmMin(
+          effectiveKm,
+          minutesFromKm(effectiveKm, SPEEDS.WALK),
+          1500
+        ),
+        description: "On-foot courier",
+      },
+      {
+        key: "bicycle",
+        icon: <FontAwesome5 name="bicycle" size={22} color="#d32f2f" />,
+        title: "Bicycle Carrier",
+        eta: `${minutesFromKm(effectiveKm, SPEEDS.BICYCLE)} min`,
+        price: priceFromKmMin(
+          effectiveKm,
+          minutesFromKm(effectiveKm, SPEEDS.BICYCLE),
+          2500
+        ),
+        description: "Cyclist courier",
+      },
+      {
+        key: "bike",
+        icon: <FontAwesome5 name="motorcycle" size={22} color="#0288d1" />,
+        title: "Bike Carrier",
+        eta: `${minutesFromKm(effectiveKm, SPEEDS.TWO_WHEELER)} min`,
+        price: priceFromKmMin(
+          effectiveKm,
+          minutesFromKm(effectiveKm, SPEEDS.TWO_WHEELER),
+          3500
+        ),
+        description: "Motorbike courier",
+      },
+      {
+        key: "car",
+        icon: <FontAwesome5 name="car" size={22} color="#1565c0" />,
+        title: "Car Carrier",
+        eta: `${minutesFromKm(effectiveKm, SPEEDS.CAR)} min`,
+        price: priceFromKmMin(
+          effectiveKm,
+          minutesFromKm(effectiveKm, SPEEDS.CAR),
+          4000
+        ),
+        description: "Car delivery",
+      },
+    ],
+    [effectiveKm]
+  );
+
+  /* Map & fit */
+  const mapRef = useRef<MapView | null>(null);
+
   useEffect(() => {
-    async function updateEtasAndDistance() {
-      // Use the first carrier's mode for the main route distance (e.g., walking)
-      const { etaMin, distanceKm: realDistance } = await fetchEtaAndDistance(
-        carriers[0].mode,
-        senderMarker,
-        receiverMarker
+    let cancelled = false;
+
+    async function loadRoute() {
+      if (!hasBoth) return;
+      const { coords, distanceKm } = await fetchRoutePolyline(
+        origin,
+        destination
       );
-      if (realDistance) setRouteDistanceKm(realDistance);
-      else setRouteDistanceKm(null);
-      // Use real route distance for all price calculations
-      const usedDistance = realDistance || distanceKm;
-      const updated = await Promise.all(
-        carriers.map(async (carrier) => {
-          const { etaMin: eta } = await fetchEtaAndDistance(
-            carrier.mode,
-            senderMarker,
-            receiverMarker
-          );
-          const etaStr = eta ? `${eta} min` : carrier.eta;
-          const calc = calculateCarrierPriceAndEta(
-            { ...carrier, eta: etaStr },
-            usedDistance
-          );
-          return { ...carrier, ...calc, eta: etaStr, modalEta: etaStr };
-        })
-      );
-      setCarriers(updated);
+      if (cancelled) return;
+
+      if (coords.length > 1) {
+        setRouteCoords(coords);
+        if (typeof distanceKm === "number") setRouteKm(distanceKm);
+
+        setTimeout(() => {
+          mapRef.current?.fitToCoordinates(coords, {
+            edgePadding: { top: 80, right: 40, bottom: 140, left: 40 },
+            animated: true,
+          });
+        }, 60);
+      } else {
+        // Fallback: show straight geodesic if APIs returned nothing
+        setRouteCoords([]);
+        setRouteKm(null);
+        setTimeout(() => {
+          mapRef.current?.fitToCoordinates([origin, destination], {
+            edgePadding: { top: 80, right: 40, bottom: 140, left: 40 },
+            animated: true,
+          });
+        }, 60);
+      }
     }
-    updateEtasAndDistance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    senderMarker.latitude,
-    senderMarker.longitude,
-    receiverMarker.latitude,
-    receiverMarker.longitude,
-  ]);
 
-  // Simulate fetching carrier data (replace with real API call)
-  const fetchCarriers = async () => {
-    // TODO: Replace with real API call to fetch available carriers
-    // For now, just reset to the static list after a delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setCarriers([...carriers]);
-  };
+    loadRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, destination, hasBoth]);
 
-  // Dummy refresh handler replaced with real data reload
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchCarriers();
-    setRefreshing(false);
-  };
+  /* Modal */
+  const [modal, setModal] = useState<{
+    open: boolean;
+    title?: string;
+    price?: string;
+    eta?: string;
+  }>({ open: false });
 
-  // Helper: get address from params (support both camelCase and snake_case)
-  const senderAddress = params.sender_location || params.senderLocation || null;
-  const receiverAddress =
-    params.receiver_location || params.receiverLocation || null;
+  const senderAddress = (params.sender_location || params.senderLocation) as
+    | string
+    | undefined;
+  const receiverAddress = (params.receiver_location ||
+    params.receiverLocation) as string | undefined;
 
   return (
     <View style={styles.container}>
-      {/* Back Icon */}
+      {/* Back */}
       <TouchableOpacity
-        style={{
-          position: "absolute",
-          top: 48,
-          left: 20,
-          zIndex: 100,
-          backgroundColor: "rgba(0,0,0,0.5)",
-          borderRadius: 20,
-          padding: 8,
-        }}
+        style={styles.backBtn}
         onPress={() => router.back()}
-        activeOpacity={0.7}
+        activeOpacity={0.8}
       >
         <AntDesign name="arrowleft" size={20} color="#fff" />
       </TouchableOpacity>
 
-      {/* ============ Top Map Area (Real MapView) ============ */}
+      {/* Map */}
       <View style={styles.mapContainer}>
         <MapView
-          style={styles.mapImage}
+          ref={mapRef}
+          style={styles.map}
           provider={PROVIDER_GOOGLE}
-          initialRegion={initialRegion}
-          showsUserLocation={true}
-          showsMyLocationButton={true}
+          initialRegion={{
+            latitude: origin.latitude,
+            longitude: origin.longitude,
+            latitudeDelta: 0.2,
+            longitudeDelta: 0.2,
+          }}
           userInterfaceStyle="light"
+          showsUserLocation
+          showsMyLocationButton
+          zoomEnabled={true}
+          scrollEnabled={true}
         >
-          {/* Sender Marker */}
-          {senderMarker && (
-            <Marker
-              coordinate={senderMarker}
-              title="Sender"
-              pinColor="#27ae60"
-              tracksViewChanges={true}
-            >
-              <FontAwesome5 name="map-marker-alt" size={22} color="#27ae60" />
-            </Marker>
-          )}
-          {/* Receiver Marker */}
-          {receiverMarker && (
-            <Marker
-              coordinate={receiverMarker}
-              title="Receiver"
-              pinColor="#e74c3c"
-              tracksViewChanges={true}
-            >
-              <FontAwesome5 name="map-marker-alt" size={22} color="#e74c3c" />
-            </Marker>
-          )}
-          {/* Online Carrier Markers */}
-          {onlineCarriers.map((carrier, idx) => (
-            <Marker
-              key={carrier.user_id || idx}
-              coordinate={{
-                latitude: carrier.latitude,
-                longitude: carrier.longitude,
-              }}
-              title={carrier.first_name || "Carrier"}
-            >
-              {carrier.carrier_type === "Bike" ? (
-                <Image
-                  source={bikeMarkerIcon}
-                  style={{ width: 28, height: 28, resizeMode: "contain" }}
-                />
-              ) : (
-                <FontAwesome5 name="bicycle" size={28} color="#0DB760" />
-              )}
-            </Marker>
-          ))}
-          {/* Line connecting both markers */}
-          {senderMarker && receiverMarker && (
+          <Marker coordinate={origin} title="Sender">
+            <FontAwesome5 name="map-marker-alt" size={22} color="#27ae60" />
+          </Marker>
+
+          <Marker coordinate={destination} title="Receiver">
+            <FontAwesome5 name="map-marker-alt" size={22} color="#e74c3c" />
+          </Marker>
+
+          {/* If we got a turn-by-turn polyline, draw it; else draw a geodesic fallback */}
+          {routeCoords.length > 1 ? (
             <Polyline
-              coordinates={[senderMarker, receiverMarker]}
-              strokeColor="#1565c0"
+              coordinates={routeCoords}
+              strokeColor={COLOR.brand}
               strokeWidth={3}
+              lineCap="round"
+              lineJoin="round"
+              geodesic
             />
+          ) : (
+            hasBoth && (
+              <Polyline
+                coordinates={[origin, destination]}
+                geodesic
+                strokeColor={COLOR.brand}
+                strokeWidth={4}
+              />
+            )
           )}
         </MapView>
-        {/* Distance Overlay */}
-        <View style={styles.distanceLabel}>
-          <Text style={styles.distanceText}>{distanceText}</Text>
+
+        {/* Distance pill – prefer route length if we have it */}
+        <View style={styles.pill}>
+          <Text style={styles.pillText}>
+            {(routeKm ?? crowKm).toFixed(1)} km
+          </Text>
         </View>
       </View>
 
-      {/* ============ Carrier List Section ============ */}
-      <View style={[styles.bottomPanel, { marginTop: -60 }]}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {/* Each carrier option below is a card-style component */}
-          {carriers.map((carrier, idx) => (
-            <CarrierCard
-              key={idx}
-              icon={carrier.icon}
-              title={carrier.title}
-              eta={carrier.eta}
-              price={carrier.price}
-              description={carrier.description}
-              note={carrier.note}
+      {/* Bottom panel with cards */}
+      <View style={[styles.panel, { marginTop: -30 }]}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {carriers.map((c) => (
+            <TouchableOpacity
+              key={c.key}
+              activeOpacity={0.9}
               onPress={() =>
-                handleCardPress({
-                  icon: carrier.modalIcon,
-                  title: carrier.title, // pass the card's title here
-                  price: carrier.price,
-                  eta: carrier.eta,
-                  modalTitle: carrier.modalTitle,
+                setModal({
+                  open: true,
+                  title: c.title,
+                  price: c.price,
+                  eta: c.eta,
                 })
               }
-            />
+            >
+              <View style={styles.card}>
+                <View style={styles.iconBox}>{c.icon}</View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.cardTitle}>{c.title}</Text>
+                  <Text style={styles.cardSub}>
+                    ETA <Text style={styles.bold}>{c.eta}</Text> away
+                  </Text>
+                  <Text style={styles.cardDesc}>Package delivery</Text>
+                </View>
+                <Text style={styles.price}>{c.price}</Text>
+              </View>
+            </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {/* =========== Modal Popup =========== */}
-      <Modal visible={isModalVisible} animationType="slide" transparent>
+      {/* Modal */}
+      <Modal
+        visible={modal.open}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModal({ open: false })}
+      >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPressOut={() => setModalVisible(false)}
+          onPressOut={() => setModal({ open: false })}
         >
-          <View
-            style={styles.modalCard}
-            // Prevent modal from closing when clicking inside the card
-            onStartShouldSetResponder={() => true}
-          >
-            {/* Close button */}
+          <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
             <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
+              style={styles.modalClose}
+              onPress={() => setModal({ open: false })}
             >
-              <AntDesign name="close" size={24} color="black" />
+              <AntDesign name="close" size={22} color="#000" />
             </TouchableOpacity>
 
-            {/* Carrier Icon */}
-            {modalCarrier.icon}
+            <Text style={styles.modalTitle}>{modal.title}</Text>
 
-            {/* Title */}
-            <Text style={styles.modalTitle}>{modalCarrier.title}</Text>
-
-            {/* Address Block */}
             <View style={styles.routeBlock}>
-              <View style={styles.routeDotBlock}>
-                <View style={styles.startDot} />
-                <View style={styles.routeLine} />
-                <View style={styles.endDot} />
+              <View style={styles.dotCol}>
+                <View style={styles.dotStart} />
+                <View style={styles.dotLine} />
+                <View style={styles.dotEnd} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.routeText}>
                   Sender:{" "}
-                  {senderAddress
-                    ? String(senderAddress)
-                    : senderMarker.latitude.toFixed(5) +
-                      ", " +
-                      senderMarker.longitude.toFixed(5)}
+                  {senderAddress ??
+                    `${origin.latitude.toFixed(5)}, ${origin.longitude.toFixed(
+                      5
+                    )}`}
                 </Text>
                 <Text style={styles.routeText}>
                   Receiver:{" "}
-                  {receiverAddress
-                    ? String(receiverAddress)
-                    : receiverMarker.latitude.toFixed(5) +
-                      ", " +
-                      receiverMarker.longitude.toFixed(5)}
+                  {receiverAddress ??
+                    `${destination.latitude.toFixed(
+                      5
+                    )}, ${destination.longitude.toFixed(5)}`}
                 </Text>
-                <Text style={styles.routeText}>ETA: {modalCarrier.eta}</Text>
+                <Text style={styles.routeText}>ETA: {modal.eta}</Text>
               </View>
             </View>
 
-            {/* Cost Info */}
-            <Text style={styles.costLabel}>Estimated Carrier Cost</Text>
-            <View style={styles.costRow}>
-              <Text style={styles.costAmount}>{modalCarrier.price}</Text>
-              <Text style={styles.vatText}>Inclusive VAT: 7.5%</Text>
-            </View>
+            <Text style={styles.costLabel}>Estimated Cost</Text>
+            <Text style={styles.costAmount}>{modal.price}</Text>
 
-            {/* Select Button */}
             <TouchableOpacity
               style={styles.selectBtn}
-              onPress={async () => {
-                setModalVisible(false);
-                // Map card title to carrier_type explicitly
-                const cardTitleToType = {
-                  Carrier: "Carrier",
-                  "Bicycle Carrier": "Bicycle",
-                  "Bike Carrier": "Bike",
-                  "Car Carrier": "Car",
-                };
-                const cardTitle = modalCarrier.cardTitle || modalCarrier.title;
-                const carrierType =
-                  cardTitleToType[cardTitle as keyof typeof cardTitleToType] ||
-                  "Carrier";
-                // Log for debugging: only for Bike Carrier
-                if (carrierType === "Bike") {
-                  console.log("[SelectCarrier] Bike Carrier button pressed");
-                  console.log("modalCarrier:", modalCarrier);
-                  console.log("params:", params);
-                }
-                try {
-                  // Replace with local/mock data or other backend
-                  const selectedCarrier = null;
-                  const sender_name = params.sender_name || "";
-                  const sender_contact = params.sender_contact || null;
-
-                  // Parse price to number if possible
-                  let priceValue = null;
-                  if (typeof modalCarrier.price === "string") {
-                    priceValue = Number(
-                      modalCarrier.price.replace(/[^\d.]/g, "")
-                    );
-                  } else if (typeof modalCarrier.price === "number") {
-                    priceValue = modalCarrier.price;
-                  }
-                  // Prepare imagesField for insert
-                  let imagesField = null;
-                  if (
-                    Array.isArray(params.images) &&
-                    params.images.length > 0
-                  ) {
-                    imagesField = params.images;
-                  } else if (
-                    typeof params.images === "string" &&
-                    params.images.trim() !== ""
-                  ) {
-                    imagesField = [params.images];
-                  }
-                  // Prepare all params for delivery_request insert (broadcast model)
-                  const insertPayload = {
-                    sender_id: params.sender_id,
-                    sender_name,
-                    sender_contact, // fetched from sender_profile
-                    sender_location: params.sender_location,
-                    sender_latitude: params.sender_latitude
-                      ? Number(params.sender_latitude)
-                      : null,
-                    sender_longitude: params.sender_longitude
-                      ? Number(params.sender_longitude)
-                      : null,
-                    receiver_location: params.receiver_location,
-                    receiver_latitude: params.receiver_latitude
-                      ? Number(params.receiver_latitude)
-                      : null,
-                    receiver_longitude: params.receiver_longitude
-                      ? Number(params.receiver_longitude)
-                      : null,
-                    receiver_name: params.receiver_name,
-                    receiver_contact: params.receiver_contact,
-                    item_type: params.item_type,
-                    quantity: params.quantity ? Number(params.quantity) : 1,
-                    insurance: String(params.insurance) === "true",
-                    is_inter_state: String(params.is_inter_state) === "true",
-                    images: imagesField,
-                    delivery_method: params.delivery_method,
-                    price: priceValue,
-                    carrier_type: carrierType,
-                    assigned_carrier_id: null, // <-- no carrier assigned yet
-                    status: "pending", // <-- set to pending instead of broadcasting
-                  };
-                  console.log(
-                    "[SelectCarrier] BROADCAST insertPayload:",
-                    insertPayload
-                  );
-                  // Insert new delivery_request
-                  // Replace with local/mock data or other backend
-                  router.push({
-                    pathname: "/",
-                    params: {
-                      deliveryRequestId: "mock-id",
-                      carrierType,
-                      price: modalCarrier.price,
-                    },
-                  });
-                } catch (e) {
-                  alert("Failed to create delivery request");
-                }
+              onPress={() => {
+                setModal({ open: false });
+                router.push("/");
               }}
             >
               <Text style={styles.selectBtnText}>Select Carrier</Text>
@@ -639,157 +485,75 @@ export default function SelectCarrierScreen() {
   );
 }
 
-// ============ Reusable Carrier Card Component ============
-type CarrierCardProps = {
-  icon: React.ReactNode;
-  title: string;
-  eta: string;
-  price: string;
-  description: string;
-  note?: string;
-  onPress: () => void;
-};
-
-function CarrierCard({
-  icon,
-  title,
-  eta,
-  price,
-  description,
-  note,
-  onPress,
-}: CarrierCardProps) {
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.card}>
-        {/* Left Icon */}
-        <View style={styles.iconBox}>{icon}</View>
-
-        {/* Info Section */}
-        <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.etaText}>
-            ETA{" "}
-            {eta === "Loading" ? (
-              <>
-                <ActivityIndicator
-                  size="small"
-                  color="#00c2a8"
-                  style={{ marginLeft: 4 }}
-                />
-                <Text style={{ fontWeight: "bold" }}> (fetching...)</Text>
-              </>
-            ) : (
-              <Text style={{ fontWeight: "bold" }}>{eta}</Text>
-            )}{" "}
-            away
-          </Text>
-          <Text style={styles.cardDescription}>{description}</Text>
-          {note && <Text style={styles.cardNote}>{note}</Text>}
-        </View>
-
-        {/* Price */}
-        <Text style={styles.priceText}>{price}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-// ============ Styles ============
+/* ------------------------------------------------------------------ */
+/* Styles                                                              */
+/* ------------------------------------------------------------------ */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#e8f5e9",
+  container: { flex: 1, backgroundColor: COLOR.bg },
+
+  backBtn: {
+    position: "absolute",
+    top: 48,
+    left: 20,
+    zIndex: 100,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 20,
+    padding: 8,
   },
 
   mapContainer: {
     height: "45%",
-    backgroundColor: "#ccc",
+    backgroundColor: COLOR.mapTop,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     overflow: "hidden",
   },
+  map: { width: "100%", height: "100%" },
 
-  mapImage: {
-    width: "100%",
-    height: "100%",
-  },
-
-  distanceLabel: {
+  pill: {
     position: "absolute",
     right: 20,
     top: 20,
-    backgroundColor: "white",
-    padding: 8,
+    backgroundColor: "#fff",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: 8,
     elevation: 5,
   },
+  pillText: { fontWeight: "bold", fontSize: 16 },
 
-  distanceText: {
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-
-  bottomPanel: {
+  panel: {
     flex: 1,
-    backgroundColor: "#00c2a8",
+    backgroundColor: COLOR.panel,
     paddingHorizontal: 15,
     paddingTop: 20,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    marginTop: -30,
   },
 
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: COLOR.cardBg,
     borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 18,
     flexDirection: "row",
     alignItems: "center",
-    elevation: 3,
+    elevation: 2,
   },
-
   iconBox: {
     marginRight: 12,
     backgroundColor: "#f1f1f1",
     borderRadius: 8,
     padding: 8,
   },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: COLOR.text },
+  cardSub: { fontSize: 13, color: COLOR.sub },
+  bold: { fontWeight: "bold", color: COLOR.text },
+  cardDesc: { fontSize: 12, color: "#777", marginTop: 2 },
+  price: { fontWeight: "bold", fontSize: 16, color: COLOR.text },
 
-  cardInfo: {
-    flex: 1,
-  },
-
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-
-  etaText: {
-    fontSize: 13,
-    color: "#555",
-  },
-
-  cardDescription: {
-    fontSize: 12,
-    color: "#777",
-    marginTop: 2,
-  },
-
-  cardNote: {
-    fontSize: 11,
-    color: "#009688",
-    marginTop: 4,
-  },
-
-  priceText: {
-    fontWeight: "bold",
-    fontSize: 16,
-    color: "#000",
-  },
-
-  // =========== Modal Styles ===========
+  /* Modal */
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
@@ -803,78 +567,41 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     position: "relative",
   },
-  closeButton: {
-    position: "absolute",
-    right: 15,
-    top: 15,
-    zIndex: 10,
-  },
+  modalClose: { position: "absolute", right: 15, top: 15, zIndex: 10 },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
     marginBottom: 15,
   },
-  routeBlock: {
-    flexDirection: "row",
-    marginBottom: 20,
-  },
-  routeDotBlock: {
-    alignItems: "center",
-    marginRight: 10,
-  },
-  startDot: {
+
+  routeBlock: { flexDirection: "row", marginBottom: 18 },
+  dotCol: { alignItems: "center", marginRight: 10 },
+  dotStart: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "black",
+    backgroundColor: "#000",
     marginBottom: 3,
   },
-  routeLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: "#00c2a8",
-  },
-  endDot: {
+  dotLine: { width: 2, height: 22, backgroundColor: COLOR.panel },
+  dotEnd: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#00c2a8",
+    backgroundColor: COLOR.panel,
     marginTop: 3,
   },
-  routeText: {
-    marginBottom: 5,
-    fontSize: 13,
-    color: "#333",
-  },
-  costLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    marginBottom: 5,
-  },
-  costRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  costAmount: {
-    fontSize: 22,
-    fontWeight: "bold",
-  },
-  vatText: {
-    fontSize: 12,
-    color: "#555",
-  },
+  routeText: { marginBottom: 5, fontSize: 13, color: "#333" },
+
+  costLabel: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+  costAmount: { fontSize: 22, fontWeight: "bold", marginBottom: 18 },
+
   selectBtn: {
-    backgroundColor: "black",
+    backgroundColor: "#000",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
-  selectBtnText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+  selectBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });
