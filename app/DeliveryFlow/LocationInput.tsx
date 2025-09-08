@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
 
   inputWrap: {
     backgroundColor: COLOR.inputBg,
-    borderRadius: 12,
+    borderRadius: 1,
     borderWidth: 1,
     borderColor: COLOR.inputBorder,
     // ensure the suggestions list can overlay the next elements

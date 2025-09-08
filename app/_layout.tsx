@@ -145,6 +145,10 @@ export default function RootLayout() {
             name="DeliveryFlow/SendParcel"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="DeliveryFlow/LocationInput"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>

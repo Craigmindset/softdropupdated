@@ -7,6 +7,18 @@ import {
   Text,
   StyleSheet,
 } from "react-native";
+
+type Suggestion = {
+  place_id: string;
+  description: string;
+};
+
+type CustomPlacesAutocompleteProps = {
+  value: string;
+  onChange: (val: string) => void;
+  onSelect: (val: string) => void;
+  placeholder?: string;
+};
 import { GOOGLE_MAPS_APIKEY } from "../constants/Keys";
 
 const fetchSuggestions = async (input: string) => {
@@ -28,8 +40,8 @@ export default function CustomPlacesAutocomplete({
   onChange,
   onSelect,
   placeholder,
-}) {
-  const [suggestions, setSuggestions] = useState([]);
+}: CustomPlacesAutocompleteProps) {
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleChange = async (text: string) => {
@@ -62,8 +74,8 @@ export default function CustomPlacesAutocomplete({
         <View style={styles.dropdown}>
           <FlatList
             data={suggestions}
-            keyExtractor={(item) => item.place_id}
-            renderItem={({ item }) => (
+            keyExtractor={(item: Suggestion) => item.place_id}
+            renderItem={({ item }: { item: Suggestion }) => (
               <TouchableOpacity
                 style={styles.item}
                 onPress={() => handleSelect(item)}

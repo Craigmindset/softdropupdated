@@ -1,467 +1,880 @@
-// app/(delivery)/SelectCarrier.tsx
-// -------------------------------------------------------------
-// Screen: SelectCarrier
-// Purpose: Show a map with route + a bottom sheet-style list of
-//          carrier options (walker, bicycle, bike, car).
-// Notes:
-// - Uses react-native-maps + react-native-maps-directions for the route
-// - Requires a Google Maps key with Directions API enabled
-// - Icons via MaterialCommunityIcons
-// -------------------------------------------------------------
-
-import React, { useMemo, useRef, useState } from "react";
 import {
-  SafeAreaView,
-  View,
-  Text,
+  AntDesign,
+  FontAwesome5,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
+import Constants from "expo-constants";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
+  Text,
   TouchableOpacity,
-  Dimensions,
-  StatusBar,
-  FlatList,
+  View,
 } from "react-native";
-import MapView, {
-  Marker,
-  PROVIDER_GOOGLE,
-  LatLng,
-  Region,
-} from "react-native-maps";
-import MapViewDirections from "react-native-maps-directions";
-import { MaterialCommunityIcons as MCI } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from "react-native-maps";
+// import { supabase } from "../lib/supabase";
 
-// ✅ Your API key import (as requested)
-import { GOOGLE_MAPS_APIKEY } from "../../constants/Keys";
+const bikeMarkerIcon = require("../../assets/images/bike.png");
 
-// ---- Types --------------------------------------------------
+// Helper to calculate distance between two lat/lng points (Haversine formula)
+function getDistanceFromLatLonInKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) {
+  function deg2rad(deg: number) {
+    return deg * (Math.PI / 180);
+  }
+  const R = 6371; // Radius of the earth in km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) *
+      Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in km
+  return d;
+}
 
-type CarrierKind = "walker" | "bicycle" | "bike" | "car";
+// Helper to extract numeric minutes from eta string (e.g., '8 min' => 8)
+function parseEtaMinutes(eta: string): number {
+  const match = eta.match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
 
-type CarrierOption = {
-  id: string;
-  kind: CarrierKind;
-  title: string;
-  etaMin: number;
-  price: number;
-  note?: string;
-  icon: keyof typeof MCI.glyphMap;
-  tint: string;
+// Helper to calculate price and ETA for each carrier
+function calculateCarrierPriceAndEta(carrier: any, distanceKm: number) {
+  // Base fares by carrier title
+  const baseFares: Record<string, number> = {
+    Carrier: 1500,
+    "Bicycle Carrier": 2500,
+    "Bike Carrier": 3500,
+    "Car Carrier": 4000,
+  };
+  const baseFare = baseFares[carrier.title] || 0;
+  const etaMinutes = parseEtaMinutes(carrier.eta);
+  const timeCost = 50 * etaMinutes;
+  const distanceCost = 100 * distanceKm;
+  const total = baseFare + timeCost + distanceCost;
+  return {
+    price: `₦${Math.round(total).toLocaleString()}`,
+    modalPrice: `₦${Math.round(total).toLocaleString()}`,
+    modalEta: `${etaMinutes} min`,
+  };
+}
+
+const GOOGLE_MAPS_API_KEY =
+  Constants?.expoConfig?.extra?.GOOGLE_PLACES_API_KEY ||
+  process.env.GOOGLE_PLACES_API_KEY;
+
+// Helper to fetch real-time ETA and route distance from Google Directions API
+async function fetchEtaAndDistance(
+  mode: string,
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number }
+) {
+  const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=${mode}&key=${GOOGLE_MAPS_API_KEY}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    if (
+      data.routes &&
+      data.routes[0] &&
+      data.routes[0].legs &&
+      data.routes[0].legs[0]
+    ) {
+      const duration = data.routes[0].legs[0].duration.value; // seconds
+      const distanceMeters = data.routes[0].legs[0].distance.value; // meters
+      return {
+        etaMin: Math.round(duration / 60),
+        distanceKm: distanceMeters / 1000,
+      };
+    }
+  } catch (e) {
+    // fallback
+  }
+  return { etaMin: null, distanceKm: null };
+}
+
+// Add mapping from carrier title to carriage_type
+const CARRIAGE_TYPE_MAP: Record<string, string> = {
+  Carrier: "Carrier",
+  "Bicycle Carrier": "Bicycle",
+  "Bike Carrier": "Bike",
+  "Car Carrier": "Car",
 };
 
-// ---- Constants / Mock Data ---------------------------------
-
-// • Demo Lagos points (feel free to wire these to real locations)
-const ORIGIN: LatLng = { latitude: 6.4362, longitude: 3.4346 }; // VI axis
-const DEST: LatLng = { latitude: 6.4275, longitude: 3.4331 }; // near Oniru
-
-// • Carrier list rendered in the bottom panel
-const CARRIERS: CarrierOption[] = [
-  {
-    id: "walker",
-    kind: "walker",
-    title: "Carrier",
-    etaMin: 12,
-    price: 1500,
-    note: "Cheaper but longer delivery time",
-    icon: "walk",
-    tint: "#22B07D",
-  },
-  {
-    id: "bicycle",
-    kind: "bicycle",
-    title: "Bicycle Carrier",
-    etaMin: 8,
-    price: 2500,
-    icon: "bicycle",
-    tint: "#E84D4D",
-  },
-  {
-    id: "bike",
-    kind: "bike",
-    title: "Bike Carrier",
-    etaMin: 8,
-    price: 3000,
-    icon: "motorbike",
-    tint: "#14A3DB",
-  },
-  {
-    id: "car",
-    kind: "car",
-    title: "Car Carrier",
-    etaMin: 8,
-    price: 3800,
-    icon: "car",
-    tint: "#76A5C7",
-  },
-];
-
-// • Simple ₦ formatter (Intl sometimes varies across RN envs)
-const formatNaira = (n: number) => `₦${n.toLocaleString("en-NG")}`;
-
-// ---- Component ---------------------------------------------
-
-/**
- * SelectCarrier
- * - Map on top with route, carriers placed along path
- * - Bottom sheet-style panel with selectable carrier cards
- */
-export default function SelectCarrier() {
+export default function SelectCarrierScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
-  // • Track which carrier card is selected
-  const [selectedId, setSelectedId] = useState<string>("bike");
+  // Use only the robust marker logic for map and polyline, remove senderLocation/receiverLocation legacy fallback
+  // Remove senderLocation and receiverLocation above, and use only senderMarker and receiverMarker everywhere for map and polyline
 
-  // • Track distance/duration from Directions for UI badge
-  const [km, setKm] = useState<number | null>(null);
-
-  // • Map ref for fitting route bounds on load
-  const mapRef = useRef<MapView>(null);
-
-  // • Initial region (centered between origin/destination)
-  const initialRegion: Region = useMemo(
-    () => ({
-      latitude: (ORIGIN.latitude + DEST.latitude) / 2,
-      longitude: (ORIGIN.longitude + DEST.longitude) / 2,
-      latitudeDelta: Math.abs(ORIGIN.latitude - DEST.latitude) * 5 || 0.04,
-      longitudeDelta: Math.abs(ORIGIN.longitude - DEST.longitude) * 5 || 0.04,
-    }),
-    []
+  // Fix: parse all params as floats and check for valid numbers
+  function parseCoord(val: any): number | null {
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  }
+  const senderLat = parseCoord(params.sender_latitude ?? params.senderLat);
+  const senderLng = parseCoord(params.sender_longitude ?? params.senderLng);
+  const receiverLat = parseCoord(
+    params.receiver_latitude ?? params.receiverLat
+  );
+  const receiverLng = parseCoord(
+    params.receiver_longitude ?? params.receiverLng
   );
 
+  // Only use marker if both lat/lng are valid numbers from params (inputted address)
+  // Never use device location for sender marker; fallback is a neutral default (Lagos center)
+  const senderMarker =
+    senderLat !== null && senderLng !== null
+      ? { latitude: senderLat, longitude: senderLng }
+      : { latitude: 6.5244, longitude: 3.3792 }; // Lagos center as fallback
+
+  // Same logic for receiver marker
+  const receiverMarker =
+    receiverLat !== null && receiverLng !== null
+      ? { latitude: receiverLat, longitude: receiverLng }
+      : { latitude: 6.5244, longitude: 3.3792 }; // Lagos center as fallback
+
+  // If either marker is missing, fallback to a default region
+  const initialRegion =
+    senderMarker && receiverMarker
+      ? {
+          latitude: (senderMarker.latitude + receiverMarker.latitude) / 2,
+          longitude: (senderMarker.longitude + receiverMarker.longitude) / 2,
+          latitudeDelta: 0.01, // Street-level zoom
+          longitudeDelta: 0.01, // Street-level zoom
+        }
+      : {
+          latitude: 6.6018,
+          longitude: 3.3515,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        };
+
+  const distanceKm =
+    senderMarker && receiverMarker
+      ? getDistanceFromLatLonInKm(
+          senderMarker.latitude,
+          senderMarker.longitude,
+          receiverMarker.latitude,
+          receiverMarker.longitude
+        )
+      : 0;
+
+  // Add state for real route distance
+  const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
+  const distanceText = routeDistanceKm
+    ? `${routeDistanceKm.toFixed(1)} km`
+    : `${distanceKm.toFixed(1)} km`;
+
+  // Modal state
+  const [isModalVisible, setModalVisible] = useState(false);
+  // Update modalCarrier state to include cardTitle
+  const [modalCarrier, setModalCarrier] = useState({
+    icon: null,
+    title: "",
+    price: "",
+    eta: "",
+    cardTitle: "", // <-- add this property
+  });
+
+  // When a carrier card is pressed, show modal with up-to-date info
+  // In handleCardPress, pass both the card's title and modalTitle
+  const handleCardPress = (carrier: any) => {
+    setModalCarrier({
+      ...carrier,
+      eta: carrier.modalEta,
+      modalEta: carrier.modalEta,
+      cardTitle: carrier.title, // always the card's title, e.g., 'Bike Carrier'
+      modalTitle: carrier.modalTitle, // can be 'Intra-city Delivery', but not used for mapping
+    });
+    setModalVisible(true);
+  };
+
+  // Pull to refresh state
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Carrier data state
+  const [carriers, setCarriers] = useState([
+    {
+      icon: <MaterialCommunityIcons name="walk" size={24} color="#000" />,
+      title: "Carrier",
+      mode: "walking",
+      eta: "Loading",
+      price: "",
+      description: "Package delivery",
+      note: "Cheaper but longer delivery time",
+      modalIcon: (
+        <MaterialCommunityIcons
+          name="walk"
+          size={40}
+          color="#000"
+          style={{ alignSelf: "center", marginBottom: 10 }}
+        />
+      ),
+      modalTitle: "Intra-city Delivery",
+    },
+    {
+      icon: <FontAwesome5 name="bicycle" size={24} color="#d32f2f" />,
+      title: "Bicycle Carrier",
+      mode: "bicycling",
+      eta: "Loading",
+      price: "",
+      description: "Package delivery",
+      note: undefined,
+      modalIcon: (
+        <FontAwesome5
+          name="bicycle"
+          size={40}
+          color="#d32f2f"
+          style={{ alignSelf: "center", marginBottom: 10 }}
+        />
+      ),
+      modalTitle: "Intra-city Delivery",
+    },
+    {
+      icon: <FontAwesome5 name="motorcycle" size={24} color="#0288d1" />,
+      title: "Bike Carrier",
+      mode: "driving",
+      eta: "Loading",
+      price: "",
+      description: "Package delivery",
+      note: undefined,
+      modalIcon: (
+        <FontAwesome5
+          name="motorcycle"
+          size={40}
+          color="#0288d1"
+          style={{ alignSelf: "center", marginBottom: 10 }}
+        />
+      ),
+      modalTitle: "Intra-city Delivery",
+    },
+    {
+      icon: <FontAwesome5 name="car" size={24} color="#1565c0" />,
+      title: "Car Carrier",
+      mode: "driving",
+      eta: "Loading",
+      price: "",
+      description: "Package delivery",
+      note: undefined,
+      modalIcon: (
+        <FontAwesome5
+          name="car"
+          size={40}
+          color="#1565c0"
+          style={{ alignSelf: "center", marginBottom: 10 }}
+        />
+      ),
+      modalTitle: "Intra-city Delivery",
+    },
+  ]);
+
+  // Add state for online carriers
+  const [onlineCarriers, setOnlineCarriers] = useState<any[]>([]);
+
+  // Fetch online carriers on mount and every 5 seconds
+  // useEffect(() => {
+  //   // Replace with local/mock data or other backend
+  // }, []);
+
+  // Fetch real-time ETA on mount or when sender/receiver changes
+  useEffect(() => {
+    async function updateEtasAndDistance() {
+      // Use the first carrier's mode for the main route distance (e.g., walking)
+      const { etaMin, distanceKm: realDistance } = await fetchEtaAndDistance(
+        carriers[0].mode,
+        senderMarker,
+        receiverMarker
+      );
+      if (realDistance) setRouteDistanceKm(realDistance);
+      else setRouteDistanceKm(null);
+      // Use real route distance for all price calculations
+      const usedDistance = realDistance || distanceKm;
+      const updated = await Promise.all(
+        carriers.map(async (carrier) => {
+          const { etaMin: eta } = await fetchEtaAndDistance(
+            carrier.mode,
+            senderMarker,
+            receiverMarker
+          );
+          const etaStr = eta ? `${eta} min` : carrier.eta;
+          const calc = calculateCarrierPriceAndEta(
+            { ...carrier, eta: etaStr },
+            usedDistance
+          );
+          return { ...carrier, ...calc, eta: etaStr, modalEta: etaStr };
+        })
+      );
+      setCarriers(updated);
+    }
+    updateEtasAndDistance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    senderMarker.latitude,
+    senderMarker.longitude,
+    receiverMarker.latitude,
+    receiverMarker.longitude,
+  ]);
+
+  // Simulate fetching carrier data (replace with real API call)
+  const fetchCarriers = async () => {
+    // TODO: Replace with real API call to fetch available carriers
+    // For now, just reset to the static list after a delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setCarriers([...carriers]);
+  };
+
+  // Dummy refresh handler replaced with real data reload
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchCarriers();
+    setRefreshing(false);
+  };
+
+  // Helper: get address from params (support both camelCase and snake_case)
+  const senderAddress = params.sender_location || params.senderLocation || null;
+  const receiverAddress =
+    params.receiver_location || params.receiverLocation || null;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Status bar contrast over map */}
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      {/* Back Icon */}
+      <TouchableOpacity
+        style={{
+          position: "absolute",
+          top: 48,
+          left: 20,
+          zIndex: 100,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          borderRadius: 20,
+          padding: 8,
+        }}
+        onPress={() => router.back()}
+        activeOpacity={0.7}
+      >
+        <AntDesign name="arrowleft" size={20} color="#fff" />
+      </TouchableOpacity>
 
-      {/* ========= Top Map Section ========= */}
-      <View style={styles.mapWrap}>
-        {/* MapView: Google provider for consistent look */}
+      {/* ============ Top Map Area (Real MapView) ============ */}
+      <View style={styles.mapContainer}>
         <MapView
-          ref={mapRef}
+          style={styles.mapImage}
           provider={PROVIDER_GOOGLE}
-          style={StyleSheet.absoluteFill}
           initialRegion={initialRegion}
-          customMapStyle={MAP_STYLE} // subtle desaturated style
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+          userInterfaceStyle="light"
         >
-          {/* Origin marker */}
-          <Marker coordinate={ORIGIN} title="Pickup">
-            <MCI name="map-marker" size={28} color="#0CAF60" />
-          </Marker>
-
-          {/* Destination marker */}
-          <Marker coordinate={DEST} title="Drop-off">
-            <MCI name="map-marker-check" size={28} color="#0077FF" />
-          </Marker>
-
-          {/* Direction polyline via Google Directions */}
-          <MapViewDirections
-            origin={ORIGIN}
-            destination={DEST}
-            apikey={GOOGLE_MAPS_APIKEY}
-            strokeWidth={5}
-            strokeColor="#00B894"
-            lineCap="round"
-            lineJoin="round"
-            onReady={(res) => {
-              // • Save distance for the small badge
-              setKm(res.distance); // in km
-
-              // • Fit route nicely within viewport
-              mapRef.current?.fitToCoordinates(res.coordinates, {
-                edgePadding: { top: 80, right: 60, bottom: 260, left: 60 },
-                animated: true,
-              });
-            }}
-          />
-
-          {/* Decorative "carriers along the route" markers */}
-          {ROUTE_SPOTS.map((spot, i) => (
-            <Marker key={i} coordinate={spot}>
-              <MCI name={spot.icon} size={20} color="#10B981" />
+          {/* Sender Marker */}
+          {senderMarker && (
+            <Marker
+              coordinate={senderMarker}
+              title="Sender"
+              pinColor="#27ae60"
+              tracksViewChanges={true}
+            >
+              <FontAwesome5 name="map-marker-alt" size={22} color="#27ae60" />
+            </Marker>
+          )}
+          {/* Receiver Marker */}
+          {receiverMarker && (
+            <Marker
+              coordinate={receiverMarker}
+              title="Receiver"
+              pinColor="#e74c3c"
+              tracksViewChanges={true}
+            >
+              <FontAwesome5 name="map-marker-alt" size={22} color="#e74c3c" />
+            </Marker>
+          )}
+          {/* Online Carrier Markers */}
+          {onlineCarriers.map((carrier, idx) => (
+            <Marker
+              key={carrier.user_id || idx}
+              coordinate={{
+                latitude: carrier.latitude,
+                longitude: carrier.longitude,
+              }}
+              title={carrier.first_name || "Carrier"}
+            >
+              {carrier.carrier_type === "Bike" ? (
+                <Image
+                  source={bikeMarkerIcon}
+                  style={{ width: 28, height: 28, resizeMode: "contain" }}
+                />
+              ) : (
+                <FontAwesome5 name="bicycle" size={28} color="#0DB760" />
+              )}
             </Marker>
           ))}
-        </MapView>
-
-        {/* Floating back button (top-left) */}
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={() => router.back()}
-          style={styles.fab}
-        >
-          <MCI name="arrow-left" size={22} color="#111827" />
-        </TouchableOpacity>
-
-        {/* Distance badge (top-center-ish) */}
-        {km !== null && (
-          <View style={styles.distanceBadge}>
-            <Text style={styles.distanceText}>{km.toFixed(1)} km</Text>
-          </View>
-        )}
-      </View>
-
-      {/* ========= Bottom Sheet-Style Panel ========= */}
-      <View style={styles.panel}>
-        {/* Heading bar (optional) */}
-        <View style={styles.panelHandle} />
-
-        {/* Carrier list (FlatList for performance) */}
-        <FlatList
-          data={CARRIERS}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingVertical: 8 }}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          renderItem={({ item }) => (
-            <CarrierCard
-              option={item}
-              selected={selectedId === item.id}
-              onPress={() => setSelectedId(item.id)}
+          {/* Line connecting both markers */}
+          {senderMarker && receiverMarker && (
+            <Polyline
+              coordinates={[senderMarker, receiverMarker]}
+              strokeColor="#1565c0"
+              strokeWidth={3}
             />
           )}
-        />
-
-        {/* CTA can be added here if you want to continue with selection */}
-        {/* <TouchableOpacity style={styles.cta}><Text style={styles.ctaText}>Confirm {selectedId}</Text></TouchableOpacity> */}
+        </MapView>
+        {/* Distance Overlay */}
+        <View style={styles.distanceLabel}>
+          <Text style={styles.distanceText}>{distanceText}</Text>
+        </View>
       </View>
-    </SafeAreaView>
+
+      {/* ============ Carrier List Section ============ */}
+      <View style={[styles.bottomPanel, { marginTop: -60 }]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Each carrier option below is a card-style component */}
+          {carriers.map((carrier, idx) => (
+            <CarrierCard
+              key={idx}
+              icon={carrier.icon}
+              title={carrier.title}
+              eta={carrier.eta}
+              price={carrier.price}
+              description={carrier.description}
+              note={carrier.note}
+              onPress={() =>
+                handleCardPress({
+                  icon: carrier.modalIcon,
+                  title: carrier.title, // pass the card's title here
+                  price: carrier.price,
+                  eta: carrier.eta,
+                  modalTitle: carrier.modalTitle,
+                })
+              }
+            />
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* =========== Modal Popup =========== */}
+      <Modal visible={isModalVisible} animationType="slide" transparent>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPressOut={() => setModalVisible(false)}
+        >
+          <View
+            style={styles.modalCard}
+            // Prevent modal from closing when clicking inside the card
+            onStartShouldSetResponder={() => true}
+          >
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <AntDesign name="close" size={24} color="black" />
+            </TouchableOpacity>
+
+            {/* Carrier Icon */}
+            {modalCarrier.icon}
+
+            {/* Title */}
+            <Text style={styles.modalTitle}>{modalCarrier.title}</Text>
+
+            {/* Address Block */}
+            <View style={styles.routeBlock}>
+              <View style={styles.routeDotBlock}>
+                <View style={styles.startDot} />
+                <View style={styles.routeLine} />
+                <View style={styles.endDot} />
+              </View>
+              <View>
+                <Text style={styles.routeText}>
+                  Sender:{" "}
+                  {senderAddress
+                    ? String(senderAddress)
+                    : senderMarker.latitude.toFixed(5) +
+                      ", " +
+                      senderMarker.longitude.toFixed(5)}
+                </Text>
+                <Text style={styles.routeText}>
+                  Receiver:{" "}
+                  {receiverAddress
+                    ? String(receiverAddress)
+                    : receiverMarker.latitude.toFixed(5) +
+                      ", " +
+                      receiverMarker.longitude.toFixed(5)}
+                </Text>
+                <Text style={styles.routeText}>ETA: {modalCarrier.eta}</Text>
+              </View>
+            </View>
+
+            {/* Cost Info */}
+            <Text style={styles.costLabel}>Estimated Carrier Cost</Text>
+            <View style={styles.costRow}>
+              <Text style={styles.costAmount}>{modalCarrier.price}</Text>
+              <Text style={styles.vatText}>Inclusive VAT: 7.5%</Text>
+            </View>
+
+            {/* Select Button */}
+            <TouchableOpacity
+              style={styles.selectBtn}
+              onPress={async () => {
+                setModalVisible(false);
+                // Map card title to carrier_type explicitly
+                const cardTitleToType = {
+                  Carrier: "Carrier",
+                  "Bicycle Carrier": "Bicycle",
+                  "Bike Carrier": "Bike",
+                  "Car Carrier": "Car",
+                };
+                const cardTitle = modalCarrier.cardTitle || modalCarrier.title;
+                const carrierType =
+                  cardTitleToType[cardTitle as keyof typeof cardTitleToType] ||
+                  "Carrier";
+                // Log for debugging: only for Bike Carrier
+                if (carrierType === "Bike") {
+                  console.log("[SelectCarrier] Bike Carrier button pressed");
+                  console.log("modalCarrier:", modalCarrier);
+                  console.log("params:", params);
+                }
+                try {
+                  // Replace with local/mock data or other backend
+                  const selectedCarrier = null;
+                  const sender_name = params.sender_name || "";
+                  const sender_contact = params.sender_contact || null;
+
+                  // Parse price to number if possible
+                  let priceValue = null;
+                  if (typeof modalCarrier.price === "string") {
+                    priceValue = Number(
+                      modalCarrier.price.replace(/[^\d.]/g, "")
+                    );
+                  } else if (typeof modalCarrier.price === "number") {
+                    priceValue = modalCarrier.price;
+                  }
+                  // Prepare imagesField for insert
+                  let imagesField = null;
+                  if (
+                    Array.isArray(params.images) &&
+                    params.images.length > 0
+                  ) {
+                    imagesField = params.images;
+                  } else if (
+                    typeof params.images === "string" &&
+                    params.images.trim() !== ""
+                  ) {
+                    imagesField = [params.images];
+                  }
+                  // Prepare all params for delivery_request insert (broadcast model)
+                  const insertPayload = {
+                    sender_id: params.sender_id,
+                    sender_name,
+                    sender_contact, // fetched from sender_profile
+                    sender_location: params.sender_location,
+                    sender_latitude: params.sender_latitude
+                      ? Number(params.sender_latitude)
+                      : null,
+                    sender_longitude: params.sender_longitude
+                      ? Number(params.sender_longitude)
+                      : null,
+                    receiver_location: params.receiver_location,
+                    receiver_latitude: params.receiver_latitude
+                      ? Number(params.receiver_latitude)
+                      : null,
+                    receiver_longitude: params.receiver_longitude
+                      ? Number(params.receiver_longitude)
+                      : null,
+                    receiver_name: params.receiver_name,
+                    receiver_contact: params.receiver_contact,
+                    item_type: params.item_type,
+                    quantity: params.quantity ? Number(params.quantity) : 1,
+                    insurance: String(params.insurance) === "true",
+                    is_inter_state: String(params.is_inter_state) === "true",
+                    images: imagesField,
+                    delivery_method: params.delivery_method,
+                    price: priceValue,
+                    carrier_type: carrierType,
+                    assigned_carrier_id: null, // <-- no carrier assigned yet
+                    status: "pending", // <-- set to pending instead of broadcasting
+                  };
+                  console.log(
+                    "[SelectCarrier] BROADCAST insertPayload:",
+                    insertPayload
+                  );
+                  // Insert new delivery_request
+                  // Replace with local/mock data or other backend
+                  router.push({
+                    pathname: "/",
+                    params: {
+                      deliveryRequestId: "mock-id",
+                      carrierType,
+                      price: modalCarrier.price,
+                    },
+                  });
+                } catch (e) {
+                  alert("Failed to create delivery request");
+                }
+              }}
+            >
+              <Text style={styles.selectBtnText}>Select Carrier</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 }
 
-// ---- Carrier Card ------------------------------------------
-
-/**
- * CarrierCard
- * - Single selectable card with icon, title, ETA, price and optional note
- */
-function CarrierCard({
-  option,
-  selected,
-  onPress,
-}: {
-  option: CarrierOption;
-  selected: boolean;
+// ============ Reusable Carrier Card Component ============
+type CarrierCardProps = {
+  icon: React.ReactNode;
+  title: string;
+  eta: string;
+  price: string;
+  description: string;
+  note?: string;
   onPress: () => void;
-}) {
+};
+
+function CarrierCard({
+  icon,
+  title,
+  eta,
+  price,
+  description,
+  note,
+  onPress,
+}: CarrierCardProps) {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.9}
-      style={[
-        styles.card,
-        selected && { borderColor: "#10B981", shadowOpacity: 0.18 },
-      ]}
-    >
-      {/* Left: Icon bubble (varies by carrier) */}
-      <View
-        style={[styles.iconBubble, { backgroundColor: `${option.tint}20` }]}
-      >
-        <MCI name={option.icon} size={22} color={option.tint} />
-      </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      <View style={styles.card}>
+        {/* Left Icon */}
+        <View style={styles.iconBox}>{icon}</View>
 
-      {/* Middle: Title + ETA + description */}
-      <View style={{ flex: 1 }}>
-        {/* Title */}
-        <Text style={styles.cardTitle}>{option.title}</Text>
-
-        {/* ETA row */}
-        <View style={styles.etaRow}>
-          <MCI name="clock-time-four-outline" size={16} color="#6B7280" />
+        {/* Info Section */}
+        <View style={styles.cardInfo}>
+          <Text style={styles.cardTitle}>{title}</Text>
           <Text style={styles.etaText}>
-            {" "}
-            {option.etaMin} min <Text style={{ color: "#6B7280" }}>away</Text>
+            ETA{" "}
+            {eta === "Loading" ? (
+              <>
+                <ActivityIndicator
+                  size="small"
+                  color="#00c2a8"
+                  style={{ marginLeft: 4 }}
+                />
+                <Text style={{ fontWeight: "bold" }}> (fetching...)</Text>
+              </>
+            ) : (
+              <Text style={{ fontWeight: "bold" }}>{eta}</Text>
+            )}{" "}
+            away
           </Text>
+          <Text style={styles.cardDescription}>{description}</Text>
+          {note && <Text style={styles.cardNote}>{note}</Text>}
         </View>
 
-        {/* Sub description */}
-        <Text style={styles.subText}>Package delivery</Text>
-
-        {/* Optional hint/note */}
-        {option.note ? (
-          <View style={styles.noteWrap}>
-            <MCI name="information-outline" size={12} color="#9CA3AF" />
-            <Text style={styles.noteText}> {option.note}</Text>
-          </View>
-        ) : null}
+        {/* Price */}
+        <Text style={styles.priceText}>{price}</Text>
       </View>
-
-      {/* Right: Price */}
-      <Text style={styles.price}>{formatNaira(option.price)}</Text>
     </TouchableOpacity>
   );
 }
 
-// ---- Styles ------------------------------------------------
-
-const { height, width } = Dimensions.get("window");
-const PANEL_BG = "#19C2A3"; // teal-ish to match the mockup tone
-
+// ============ Styles ============
 const styles = StyleSheet.create({
-  safe: {
+  container: {
     flex: 1,
-    backgroundColor: "#F5F7F9",
+    backgroundColor: "#e8f5e9",
   },
-  mapWrap: {
-    height: height * 0.46, // Map takes upper section
-    backgroundColor: "#E8EEF2",
+
+  mapContainer: {
+    height: "45%",
+    backgroundColor: "#ccc",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: "hidden",
   },
-  fab: {
+
+  mapImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  distanceLabel: {
     position: "absolute",
-    top: 12,
-    left: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    right: 20,
+    top: 20,
+    backgroundColor: "white",
+    padding: 8,
+    borderRadius: 8,
+    elevation: 5,
   },
-  distanceBadge: {
-    position: "absolute",
-    top: 10,
-    alignSelf: "center",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
-  },
+
   distanceText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#111827",
-    letterSpacing: 0.2,
+    fontWeight: "bold",
+    fontSize: 16,
   },
-  panel: {
+
+  bottomPanel: {
     flex: 1,
-    backgroundColor: PANEL_BG,
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    // subtle inner shadow illusion with extra top border
-    borderTopWidth: 2,
-    borderColor: `${PANEL_BG}90`,
+    backgroundColor: "#00c2a8",
+    paddingHorizontal: 15,
+    paddingTop: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -30,
   },
-  panelHandle: {
-    alignSelf: "center",
-    width: 44,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
-    opacity: 0.8,
-    marginBottom: 8,
-  },
+
   card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(17,24,39,0.06)",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 14,
-    elevation: 2,
+    elevation: 3,
   },
-  iconBubble: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
+
+  iconBox: {
     marginRight: 12,
+    backgroundColor: "#f1f1f1",
+    borderRadius: 8,
+    padding: 8,
   },
+
+  cardInfo: {
+    flex: 1,
+  },
+
   cardTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 2,
+    fontSize: 16,
+    fontWeight: "bold",
   },
-  etaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+
   etaText: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#111827",
+    color: "#555",
   },
-  subText: {
-    marginTop: 2,
+
+  cardDescription: {
     fontSize: 12,
-    color: "#6B7280",
+    color: "#777",
+    marginTop: 2,
   },
-  noteWrap: {
-    marginTop: 6,
+
+  cardNote: {
+    fontSize: 11,
+    color: "#009688",
+    marginTop: 4,
+  },
+
+  priceText: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: "#000",
+  },
+
+  // =========== Modal Styles ===========
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalCard: {
+    width: "90%",
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 20,
+    position: "relative",
+  },
+  closeButton: {
+    position: "absolute",
+    right: 15,
+    top: 15,
+    zIndex: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 15,
+  },
+  routeBlock: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+  routeDotBlock: {
+    alignItems: "center",
+    marginRight: 10,
+  },
+  startDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "black",
+    marginBottom: 3,
+  },
+  routeLine: {
+    width: 2,
+    height: 20,
+    backgroundColor: "#00c2a8",
+  },
+  endDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#00c2a8",
+    marginTop: 3,
+  },
+  routeText: {
+    marginBottom: 5,
+    fontSize: 13,
+    color: "#333",
+  },
+  costLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    marginBottom: 5,
+  },
+  costRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
-  noteText: {
-    fontSize: 11,
-    color: "#9CA3AF",
+  costAmount: {
+    fontSize: 22,
+    fontWeight: "bold",
   },
-  price: {
-    marginLeft: 10,
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#111827",
+  vatText: {
+    fontSize: 12,
+    color: "#555",
   },
-  // Optional CTA style if you add a confirm button
-  cta: {
-    marginTop: 10,
-    marginBottom: 6,
-    backgroundColor: "#0F9D58",
+  selectBtn: {
+    backgroundColor: "black",
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
-  ctaText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 15,
-    letterSpacing: 0.3,
+  selectBtnText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 });
-
-// ---- Subtle custom map style (desaturated) -----------------
-const MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-  {
-    featureType: "poi.park",
-    elementType: "geometry",
-    stylers: [{ color: "#e5f5ef" }],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#ffffff" }],
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#d6eef9" }],
-  },
-];
-
-// ---- Little helper spots to drop tiny icons on the route ---
-const ROUTE_SPOTS: (LatLng & { icon: keyof typeof MCI.glyphMap })[] = [
-  { latitude: 6.4344, longitude: 3.434, icon: "bicycle" },
-  { latitude: 6.4322, longitude: 3.4339, icon: "motorbike" },
-  { latitude: 6.4304, longitude: 3.4343, icon: "walk" },
-  { latitude: 6.4292, longitude: 3.4337, icon: "car" },
-];
