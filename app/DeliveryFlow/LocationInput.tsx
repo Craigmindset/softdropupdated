@@ -1,19 +1,23 @@
 // app/DeliveryFlow/LocationInput.tsx
+import "react-native-get-random-values";
+
 import React, { useState } from "react";
 import * as Location from "expo-location";
 import {
   Alert,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   StatusBar as RNStatusBar,
+  TextInput,
+  FlatList,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { MaterialCommunityIcons as MCI } from "@expo/vector-icons";
+import CustomPlacesAutocomplete from "../../components/CustomPlacesAutocomplete";
+import { GOOGLE_MAPS_APIKEY } from "../../constants/Keys";
 
 /** Same palette as SendParcel */
 const COLOR = {
@@ -31,6 +35,27 @@ const COLOR = {
 };
 
 const LocationInput: React.FC = () => {
+  // Shared autocomplete state
+  const [activeField, setActiveField] = useState<"sender" | "receiver" | null>(
+    null
+  );
+  const [autocompleteValue, setAutocompleteValue] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  // Fetch suggestions function
+  const fetchSuggestions = async (input: string) => {
+    if (!input || input.length < 3) return [];
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+      input
+    )}&key=${GOOGLE_MAPS_APIKEY}&language=en`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      return data.predictions || [];
+    } catch (e) {
+      return [];
+    }
+  };
   const router = useRouter();
 
   const [senderLocation, setSenderLocation] = useState("");
@@ -41,47 +66,48 @@ const LocationInput: React.FC = () => {
 
   const autofillSenderFromGPS = async () => {
     try {
+      console.log("[PIN ICON] Clicked: Starting autofillSenderFromGPS");
       const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("[PIN ICON] Location permission status:", status);
       if (status !== "granted") {
         Alert.alert(
           "Permission denied",
           "Location permission is required to autofill your address."
         );
+        console.log("[PIN ICON] Permission denied");
         return;
       }
       const loc = await Location.getCurrentPositionAsync({});
+      console.log("[PIN ICON] Location fetched:", loc);
       const geocode = await Location.reverseGeocodeAsync(loc.coords);
-      if (geocode && geocode.length > 0) {
-        const { name, street, city, region, country } = geocode[0];
-        const address = [name, street, city, region, country]
-          .filter(Boolean)
-          .join(", ");
-        setSenderLocation(address);
+      console.log("[PIN ICON] Geocode result:", geocode);
+      if (Array.isArray(geocode) && geocode.length > 0 && geocode[0]) {
+        const { name, street, city, region, country } = geocode[0] || {};
+        const parts = [name, street, city, region, country].filter(Boolean);
+        setSenderLocation(parts.join(", "));
+        console.log("[PIN ICON] Sender location set:", parts.join(", "));
       } else {
         setSenderLocation(`${loc.coords.latitude}, ${loc.coords.longitude}`);
+        console.log(
+          "[PIN ICON] Sender location set (coords):",
+          `${loc.coords.latitude}, ${loc.coords.longitude}`
+        );
       }
     } catch (err) {
       Alert.alert("Error", "Unable to get current location.");
+      console.log("[PIN ICON] Error:", err);
     }
   };
 
   const goNext = () => {
     if (!ready) return;
-    router.push({
-      pathname: "/DeliveryFlow/SelectCarrier",
-      params: { sender: senderLocation, receiver: receiverLocation },
-    });
+    router.push("/DeliveryFlow/SelectCarrier");
   };
 
   return (
     <SafeAreaView style={styles.safe}>
       <RNStatusBar backgroundColor={COLOR.bg} barStyle="light-content" />
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
+      <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -94,15 +120,33 @@ const LocationInput: React.FC = () => {
           <Text style={[styles.title, { marginTop: 32 }]}>Enter locations</Text>
         </View>
 
-        {/* Sender */}
+        {/* Sender & Receiver Inputs (closer together) */}
         <Text style={styles.label}>Sender location</Text>
-        <View style={styles.inputWrap}>
+        <View style={[styles.inputWrap, { marginBottom: 8, zIndex: 3 }]}>
+          {/* Reduced spacing */}
           <TextInput
+            value={
+              activeField === "sender" ? autocompleteValue : senderLocation
+            }
+            onFocus={() => {
+              setActiveField("sender");
+              setAutocompleteValue(senderLocation);
+            }}
+            onChangeText={async (text) => {
+              setAutocompleteValue(text);
+              setSenderLocation(text);
+              if (activeField === "sender" && text.length >= 3) {
+                const results = await fetchSuggestions(text);
+                setSuggestions(results);
+                setShowDropdown(true);
+              } else {
+                setShowDropdown(false);
+              }
+            }}
             placeholder="Enter sender location"
+            style={styles.input}
             placeholderTextColor={COLOR.sub}
-            value={senderLocation}
-            onChangeText={setSenderLocation}
-            style={[styles.input, { paddingRight: 70 }]}
+            returnKeyType="next"
           />
           <TouchableOpacity
             style={styles.inputIcon}
@@ -113,38 +157,88 @@ const LocationInput: React.FC = () => {
           {senderLocation.length > 0 && (
             <TouchableOpacity
               style={[styles.inputIcon, { right: 40 }]}
-              onPress={() => setSenderLocation("")}
+              onPress={() => {
+                setSenderLocation("");
+                setAutocompleteValue("");
+              }}
             >
               <MCI name="close-circle" size={18} color={COLOR.sub} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Receiver */}
-        <Text style={[styles.label, { marginTop: 6 }]}>Receiver location</Text>
-        <View style={styles.inputWrap}>
+        <Text style={styles.label}>Receiver location</Text>
+        <View
+          style={[
+            styles.inputWrap,
+            { marginBottom: 8, zIndex: 2, position: "relative" },
+          ]}
+        >
+          {/* Reduced spacing */}
           <TextInput
+            value={
+              activeField === "receiver" ? autocompleteValue : receiverLocation
+            }
+            onFocus={() => {
+              setActiveField("receiver");
+              setAutocompleteValue(receiverLocation);
+            }}
+            onChangeText={async (text) => {
+              setAutocompleteValue(text);
+              setReceiverLocation(text);
+              if (activeField === "receiver" && text.length >= 3) {
+                const results = await fetchSuggestions(text);
+                setSuggestions(results);
+                setShowDropdown(true);
+              } else {
+                setShowDropdown(false);
+              }
+            }}
             placeholder="Enter receiver location"
+            style={styles.input}
             placeholderTextColor={COLOR.sub}
-            value={receiverLocation}
-            onChangeText={setReceiverLocation}
-            style={[styles.input, { paddingRight: 70 }]}
-          />
-          <MCI
-            name="map-marker-outline"
-            size={18}
-            color={COLOR.sub}
-            style={styles.inputIcon}
+            returnKeyType="done"
           />
           {receiverLocation.length > 0 && (
             <TouchableOpacity
               style={[styles.inputIcon, { right: 40 }]}
-              onPress={() => setReceiverLocation("")}
+              onPress={() => {
+                setReceiverLocation("");
+                setAutocompleteValue("");
+              }}
             >
               <MCI name="close-circle" size={18} color={COLOR.sub} />
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Shared Autocomplete Dropdown */}
+        {showDropdown && suggestions.length > 0 && (
+          <View style={styles.sharedDropdown}>
+            <FlatList
+              data={suggestions}
+              keyExtractor={(item) => item.place_id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    if (activeField === "sender") {
+                      setSenderLocation(item.description);
+                    } else {
+                      setReceiverLocation(item.description);
+                    }
+                    setAutocompleteValue(item.description);
+                    setShowDropdown(false);
+                  }}
+                >
+                  <Text style={styles.dropdownItemText}>
+                    {item.description}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        )}
 
         {/* Next */}
         <TouchableOpacity
@@ -153,9 +247,9 @@ const LocationInput: React.FC = () => {
           disabled={!ready}
           onPress={goNext}
         >
-          <Text style={styles.nextText}>Next</Text>
+          <Text style={styles.nextText}>Find Carrier</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
@@ -190,15 +284,46 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  /** extra vertical spacing between fields */
+  block: { marginBottom: 8 }, // Reduce spacing between inputs
+  sharedDropdown: {
+    position: "absolute",
+    left: 18,
+    right: 18,
+    top: 210, // Adjust as needed to appear below both inputs
+    backgroundColor: "#fff",
+    borderColor: "#ddd",
+    borderWidth: 1,
+    borderRadius: 12,
+    zIndex: 9999,
+    maxHeight: 220,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  dropdownItem: {
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  dropdownItemText: {
+    color: "#222",
+    fontSize: 14,
+  },
+
   inputWrap: {
     backgroundColor: COLOR.inputBg,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLOR.inputBorder,
-    marginBottom: 12,
+    // ensure the suggestions list can overlay the next elements
+    overflow: "visible",
   },
   input: {
-    color: COLOR.text,
+    color: "#fff", // Ensure input text is white
+    backgroundColor: COLOR.inputBg,
     paddingHorizontal: 14,
     paddingVertical: 14,
     fontSize: 14,
@@ -210,7 +335,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
-    marginTop: 18,
+    marginTop: 50, // more space above the button
+    marginBottom: 16,
   },
   nextText: { color: "#03312A", fontWeight: "800", fontSize: 16 },
 });
