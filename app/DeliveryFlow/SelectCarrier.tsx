@@ -480,7 +480,7 @@ export default function SelectCarrierScreen() {
               style={styles.selectBtn}
               onPress={() => {
                 setModal({ open: false });
-                router.push("/");
+                router.push("/DeliveryFlow/PairWithCarrier");
               }}
             >
               <Text style={styles.selectBtnText}>Select Carrier</Text>

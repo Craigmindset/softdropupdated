@@ -149,6 +149,10 @@ export default function RootLayout() {
             name="DeliveryFlow/LocationInput"
             options={{ headerShown: false }}
           />
+          <Stack.Screen
+            name="DeliveryFlow/PairWithCarrier"
+            options={{ headerShown: false }}
+          />
         </Stack>
         <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       </ThemeProvider>
