@@ -47,7 +47,7 @@ const LocationInput: React.FC = () => {
     if (!input || input.length < 3) return [];
     const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
       input
-    )}&key=${GOOGLE_MAPS_APIKEY}&language=en`;
+    )}&key=${GOOGLE_MAPS_APIKEY}&language=en&components=country:NG`;
     try {
       const res = await fetch(url);
       const data = await res.json();

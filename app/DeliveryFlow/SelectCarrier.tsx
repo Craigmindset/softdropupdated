@@ -265,6 +265,7 @@ export default function SelectCarrierScreen() {
 
   /* Map & fit */
   const mapRef = useRef<MapView | null>(null);
+  const didFitRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -281,22 +282,27 @@ export default function SelectCarrierScreen() {
         setRouteCoords(coords);
         if (typeof distanceKm === "number") setRouteKm(distanceKm);
 
-        setTimeout(() => {
-          mapRef.current?.fitToCoordinates(coords, {
-            edgePadding: { top: 80, right: 40, bottom: 140, left: 40 },
-            animated: true,
-          });
-        }, 60);
+        if (!didFitRef.current) {
+          setTimeout(() => {
+            mapRef.current?.fitToCoordinates(coords, {
+              edgePadding: { top: 20, right: 10, bottom: 40, left: 10 },
+              animated: true,
+            });
+            didFitRef.current = true;
+          }, 60);
+        }
       } else {
-        // Fallback: show straight geodesic if APIs returned nothing
         setRouteCoords([]);
         setRouteKm(null);
-        setTimeout(() => {
-          mapRef.current?.fitToCoordinates([origin, destination], {
-            edgePadding: { top: 80, right: 40, bottom: 140, left: 40 },
-            animated: true,
-          });
-        }, 60);
+        if (!didFitRef.current) {
+          setTimeout(() => {
+            mapRef.current?.fitToCoordinates([origin, destination], {
+              edgePadding: { top: 20, right: 10, bottom: 40, left: 10 },
+              animated: true,
+            });
+            didFitRef.current = true;
+          }, 60);
+        }
       }
     }
 
@@ -340,9 +346,10 @@ export default function SelectCarrierScreen() {
           initialRegion={{
             latitude: origin.latitude,
             longitude: origin.longitude,
-            latitudeDelta: 0.2,
-            longitudeDelta: 0.2,
+            latitudeDelta: 0.005, // closer street-level zoom
+            longitudeDelta: 0.005, // closer street-level zoom
           }}
+          customMapStyle={darkMapStyle}
           userInterfaceStyle="light"
           showsUserLocation
           showsMyLocationButton
@@ -605,3 +612,105 @@ const styles = StyleSheet.create({
   },
   selectBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });
+
+// Popular dark map style (Uber-like)
+const darkMapStyle = [
+  { elementType: "geometry", stylers: [{ color: "#212121" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+  {
+    featureType: "administrative",
+    elementType: "geometry",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "administrative.country",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#9e9e9e" }],
+  },
+  {
+    featureType: "administrative.land_parcel",
+    stylers: [{ visibility: "off" }],
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#bdbdbd" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#181818" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    featureType: "poi.park",
+    elementType: "labels.text.stroke",
+    stylers: [{ color: "#1b1b1b" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#2c2c2c" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#8a8a8a" }],
+  },
+  {
+    featureType: "road.arterial",
+    elementType: "geometry",
+    stylers: [{ color: "#373737" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry",
+    stylers: [{ color: "#3c3c3c" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "geometry.fill",
+    stylers: [{ color: "#3c3c3c" }],
+  },
+  {
+    featureType: "road.highway",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#bdbdbd" }],
+  },
+  {
+    featureType: "road.local",
+    elementType: "geometry",
+    stylers: [{ color: "#212121" }],
+  },
+  {
+    featureType: "road.local",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#616161" }],
+  },
+  {
+    featureType: "transit",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#757575" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#000000" }],
+  },
+  {
+    featureType: "water",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#3d3d3d" }],
+  },
+];
