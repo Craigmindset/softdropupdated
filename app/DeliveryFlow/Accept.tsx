@@ -403,6 +403,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLOR.sub,
     marginBottom: 0,
+    fontWeight: "600",
   },
   detailValue: {
     fontSize: 13,
@@ -433,7 +434,7 @@ const styles = StyleSheet.create({
   actionText: {
     marginLeft: 3,
     fontSize: 13,
-    marginTop: 10,
+    marginTop: 1,
     color: COLOR.brand,
     fontWeight: "600",
   },
