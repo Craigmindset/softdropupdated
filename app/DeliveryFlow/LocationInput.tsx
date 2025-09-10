@@ -35,6 +35,9 @@ const COLOR = {
 };
 
 const LocationInput: React.FC = () => {
+  // Get params from previous screen
+  const { routeType, itemType, quality, receiverName, receiverContact } =
+    require("expo-router").useLocalSearchParams();
   // Shared autocomplete state
   const [activeField, setActiveField] = useState<"sender" | "receiver" | null>(
     null
@@ -139,10 +142,15 @@ const LocationInput: React.FC = () => {
       );
       return;
     }
-    // Pass both address and coordinates as params
+    // Pass all parameters (from SendParcel and location input) as params
     router.push({
       pathname: "/DeliveryFlow/SelectCarrier",
       params: {
+        routeType,
+        itemType,
+        quality,
+        receiverName,
+        receiverContact,
         sender_location: senderLocation,
         receiver_location: receiverLocation,
         sender_latitude: senderCoords.latitude,

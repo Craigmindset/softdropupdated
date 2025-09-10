@@ -506,6 +506,7 @@ export default function SelectCarrierScreen() {
                 router.push({
                   pathname: "/DeliveryFlow/PairWithCarrier",
                   params: {
+                    ...params, // pass all previous params
                     sender_latitude: origin.latitude,
                     sender_longitude: origin.longitude,
                     receiver_latitude: destination.latitude,
@@ -513,6 +514,7 @@ export default function SelectCarrierScreen() {
                     sender_location: senderAddress,
                     receiver_location: receiverAddress,
                     carrier_type: modal.key,
+                    estimated_price: modal.price,
                   },
                 });
               }}

@@ -40,6 +40,8 @@ const ITEM_OPTIONS: ItemOpt[] = [
   { key: "fragile", label: "Fragile", icon: "glass-fragile" },
   { key: "clothes", label: "Clothes", icon: "tshirt-crew-outline" },
   { key: "gadget", label: "Gadget", icon: "cellphone" },
+  { key: "foods", label: "Foods", icon: "food" },
+  { key: "automobile", label: "Automobile", icon: "car" },
 ];
 
 const INTL_IMG = require("../../assets/images/international.png");
@@ -110,9 +112,11 @@ const SendParcel: React.FC = () => {
     router.push({
       pathname: "/DeliveryFlow/LocationInput",
       params: {
-        itemType,
-        receiverName,
-        receiverPhone,
+        routeType: route,
+        itemType: itemType,
+        quality: qty,
+        receiverName: receiverName,
+        receiverContact: receiverPhone,
       },
     });
   };
@@ -653,6 +657,7 @@ const styles = StyleSheet.create({
     height: 0.5,
     backgroundColor: "#A8FFB0",
     marginVertical: 14,
+    marginTop: 18,
   },
 
   inputWrap: {

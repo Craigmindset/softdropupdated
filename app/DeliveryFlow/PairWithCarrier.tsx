@@ -346,6 +346,7 @@ export default function PairWithCarrier() {
                     router.push({
                       pathname: "/DeliveryFlow/Accept",
                       params: {
+                        ...params, // pass all previous params
                         carrier_id: carrier.id,
                         carrier_name: carrier.name,
                         carrier_type: carrier.type,
