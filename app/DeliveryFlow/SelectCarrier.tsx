@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { carrierDatabase } from "../../constants/carrierdatabase";
 
 /* ------------------------------------------------------------------ */
 /* Theme                                                               */
@@ -158,6 +159,10 @@ async function fetchRoutePolyline(
 /* Screen                                                              */
 /* ------------------------------------------------------------------ */
 export default function SelectCarrierScreen() {
+  // Filter online carriers with location
+  const onlineCarriers = carrierDatabase.filter(
+    (c) => c.carrier_online && c.latitude && c.longitude
+  );
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -364,6 +369,22 @@ export default function SelectCarrierScreen() {
             <FontAwesome5 name="map-marker-alt" size={22} color="#e74c3c" />
           </Marker>
 
+          {/* Show all online carriers on the map will delete later */}
+          {onlineCarriers.map((carrier) => (
+            <Marker
+              key={carrier.carrier_id}
+              coordinate={{
+                latitude: carrier.latitude!,
+                longitude: carrier.longitude!,
+              }}
+              title={carrier.carrier_name}
+              description={carrier.carrier_type}
+            >
+              <FontAwesome5 name="user" size={20} color="#2F7E5D" />
+            </Marker>
+          ))}
+          {/*------end of online carriers map markers------*/}
+
           {/* If we got a turn-by-turn polyline, draw it; else draw a geodesic fallback */}
           {routeCoords.length > 1 ? (
             <Polyline
@@ -480,7 +501,17 @@ export default function SelectCarrierScreen() {
               style={styles.selectBtn}
               onPress={() => {
                 setModal({ open: false });
-                router.push("/DeliveryFlow/PairWithCarrier");
+                router.push({
+                  pathname: "/DeliveryFlow/PairWithCarrier",
+                  params: {
+                    sender_latitude: origin.latitude,
+                    sender_longitude: origin.longitude,
+                    receiver_latitude: destination.latitude,
+                    receiver_longitude: destination.longitude,
+                    sender_location: senderAddress,
+                    receiver_location: receiverAddress,
+                  },
+                });
               }}
             >
               <Text style={styles.selectBtnText}>Select Carrier</Text>

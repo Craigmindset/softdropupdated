@@ -107,7 +107,14 @@ const SendParcel: React.FC = () => {
   };
 
   const goNext = () => {
-    router.push("/DeliveryFlow/LocationInput");
+    router.push({
+      pathname: "/DeliveryFlow/LocationInput",
+      params: {
+        itemType,
+        receiverName,
+        receiverPhone,
+      },
+    });
   };
 
   return (
@@ -646,7 +653,6 @@ const styles = StyleSheet.create({
     height: 0.5,
     backgroundColor: "#A8FFB0",
     marginVertical: 14,
-    marginTop: 18,
   },
 
   inputWrap: {

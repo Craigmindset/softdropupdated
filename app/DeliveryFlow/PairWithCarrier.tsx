@@ -1,17 +1,14 @@
+// app/DeliveryFlow/PairWithCarrier.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Modal,
-  StatusBar,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { AntDesign } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Constants from "expo-constants";
+import {
+  carrierDatabase,
+  type Carrier as DBCarrier,
+} from "../../constants/carrierdatabase";
 
 /* ==================== Theme ==================== */
 const COLOR = {
@@ -25,6 +22,18 @@ const COLOR = {
 };
 
 type LatLng = { latitude: number; longitude: number };
+type CarrierType = "walk" | "bicycle" | "bike" | "car";
+
+type CarrierNormalized = {
+  id: string;
+  name: string;
+  type: CarrierType;
+  phone?: string;
+  online: boolean;
+  photoUrl: string;
+  coordinate: LatLng;
+  rating?: number;
+};
 
 /* ==================== Helpers ==================== */
 const defaultCenter: LatLng = { latitude: 6.5244, longitude: 3.3792 }; // Lagos
@@ -71,16 +80,16 @@ const decodePolyline = (encoded: string): LatLng[] => {
   return points;
 };
 
-const GOOGLE_MAPS_API_KEY =
-  Constants?.expoConfig?.extra?.GOOGLE_PLACES_API_KEY ||
+import { GOOGLE_MAPS_APIKEY } from "../../constants/Keys";
+Constants?.expoConfig?.extra?.GOOGLE_PLACES_API_KEY ||
   process.env.GOOGLE_PLACES_API_KEY;
 
-/** Try Directions API (v1). If no route, return empty to fall back. */
+/** Directions API (v1). If it fails, we fall back to a simple geodesic line. */
 async function fetchDirectionsPolyline(origin: LatLng, destination: LatLng) {
-  if (!GOOGLE_MAPS_API_KEY)
+  if (!GOOGLE_MAPS_APIKEY)
     return { coords: [] as LatLng[], distanceKm: null as number | null };
   try {
-    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_APIKEY}`;
     const res = await fetch(url);
     const data = await res.json();
     const route = data?.routes?.[0];
@@ -95,79 +104,38 @@ async function fetchDirectionsPolyline(origin: LatLng, destination: LatLng) {
   return { coords: [] as LatLng[], distanceKm: null as number | null };
 }
 
-/* ========== Mock carriers (18) with avatars near the midpoint ========== */
-type Carrier = {
-  id: string;
-  name: string;
-  type: "Carrier" | "Bicycle" | "Bike" | "Car";
-  rating: number;
-  photoUrl: string;
-  coordinate: LatLng;
-};
-
-function jitter(base: LatLng, maxMeters = 800): LatLng {
-  // ~ 1e5 lat/lng factor ~ 1m ≈ 1e-5 * cos(lat). Use small deltas.
-  const metersToDeg = (m: number) => m / 111320; // approx
-  const dx = (Math.random() - 0.5) * 2 * maxMeters;
-  const dy = (Math.random() - 0.5) * 2 * maxMeters;
+/** Normalize a row from your carrierdatabase into the shape we render. */
+function normalize(row: DBCarrier): CarrierNormalized | null {
+  const hasCoords =
+    typeof row.latitude === "number" && typeof row.longitude === "number";
+  if (!hasCoords) return null; // skip items without coordinates
+  const type = (row.carrier_type?.toLowerCase() as CarrierType) || "walk";
   return {
-    latitude: base.latitude + metersToDeg(dy),
-    longitude:
-      base.longitude +
-      metersToDeg(dx) / Math.cos((base.latitude * Math.PI) / 180),
+    id: row.carrier_id,
+    name: row.carrier_name,
+    type,
+    phone: row.carrier_phone,
+    online: !!row.carrier_online,
+    photoUrl:
+      row.carrier_photo_url ||
+      `https://ui-avatars.com/api/?background=2F7E5D&color=fff&name=${encodeURIComponent(
+        row.carrier_name || "Carrier"
+      )}`,
+    coordinate: { latitude: row.latitude!, longitude: row.longitude! },
   };
 }
 
-const AVATARS = [
-  "https://randomuser.me/api/portraits/women/11.jpg",
-  "https://randomuser.me/api/portraits/men/12.jpg",
-  "https://randomuser.me/api/portraits/women/15.jpg",
-  "https://randomuser.me/api/portraits/men/16.jpg",
-  "https://randomuser.me/api/portraits/women/22.jpg",
-  "https://randomuser.me/api/portraits/men/23.jpg",
-  "https://randomuser.me/api/portraits/women/28.jpg",
-  "https://randomuser.me/api/portraits/men/29.jpg",
-  "https://randomuser.me/api/portraits/women/32.jpg",
-  "https://randomuser.me/api/portraits/men/33.jpg",
-  "https://randomuser.me/api/portraits/women/36.jpg",
-  "https://randomuser.me/api/portraits/men/37.jpg",
-  "https://randomuser.me/api/portraits/women/41.jpg",
-  "https://randomuser.me/api/portraits/men/42.jpg",
-  "https://randomuser.me/api/portraits/women/45.jpg",
-  "https://randomuser.me/api/portraits/men/46.jpg",
-  "https://randomuser.me/api/portraits/women/49.jpg",
-  "https://randomuser.me/api/portraits/men/50.jpg",
-];
-
-function buildMockCarriers(center: LatLng, picked: Carrier["type"]): Carrier[] {
-  const names = [
-    "Joy",
-    "Thomas",
-    "Sarah",
-    "Abel",
-    "Kenny",
-    "Grace",
-    "Lola",
-    "Uche",
-    "Tolu",
-    "Ada",
-    "Chidi",
-    "Amaka",
-    "Ola",
-    "Ivy",
-    "Dayo",
-    "Sade",
-    "Ife",
-    "Kola",
-  ];
-  return new Array(18).fill(0).map((_, i) => ({
-    id: `c_${i}`,
-    name: names[i % names.length],
-    type: picked, // all carriers match the selected type
-    rating: Math.round((3.8 + Math.random() * 1.2) * 10) / 10,
-    photoUrl: AVATARS[i % AVATARS.length],
-    coordinate: jitter(center, 1200),
-  }));
+/** Accept multiple param spellings and map to DB type values. */
+function normalizeTypeParam(v: unknown): CarrierType | undefined {
+  const s = String(v ?? "")
+    .toLowerCase()
+    .trim();
+  if (!s) return undefined;
+  if (["walk", "walking", "carrier"].includes(s)) return "walk";
+  if (["bicycle", "cycle", "cycling"].includes(s)) return "bicycle";
+  if (["bike", "motorbike", "motorcycle", "driving"].includes(s)) return "bike";
+  if (["car", "vehicle"].includes(s)) return "car";
+  return undefined;
 }
 
 /* ==================== Screen ==================== */
@@ -178,8 +146,10 @@ export default function PairWithCarrier() {
   const parse = (v: unknown): number | null => {
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
+    // keep NaN/undefined from breaking MapView
   };
 
+  // Sender/Receiver from params with safe fallbacks
   const origin: LatLng = useMemo(() => {
     const lat = parse(params.sender_latitude);
     const lng = parse(params.sender_longitude);
@@ -204,30 +174,22 @@ export default function PairWithCarrier() {
     [origin, destination]
   );
 
-  const selectedType = (params.carrier_type as Carrier["type"]) || "Bike";
+  // Optional filter by selected type coming from previous screen
+  const selectedType = normalizeTypeParam(params.carrier_type);
 
-  const TOTAL = 60;
-  const [left, setLeft] = useState(TOTAL);
-  const [retryVisible, setRetryVisible] = useState(false);
-  const [carriers, setCarriers] = useState<Carrier[]>(() =>
-    buildMockCarriers(midpoint, selectedType)
-  );
+  // Normalize + filter: only online carriers (and by selectedType if provided)
+  const carriers: CarrierNormalized[] = useMemo(() => {
+    const list = carrierDatabase
+      .map(normalize)
+      .filter(Boolean) as CarrierNormalized[];
+    return list.filter(
+      (c) => c.online && (!selectedType || c.type === selectedType)
+    );
+  }, [selectedType]);
+
   const carriersFound = carriers.length;
 
-  // When countdown ends, simulate no carrier found
-  useEffect(() => {
-    if (left === 0) {
-      setCarriers([]);
-    }
-  }, [left]);
-
-  useEffect(() => {
-    if (left === 0 && carriersFound === 0) {
-      setRetryVisible(true);
-    }
-  }, [left, carriersFound]);
-
-  // Route polyline (Directions API). If it fails, we fall back to geodesic.
+  // Route polyline (Directions API). If it fails, fall back to geodesic.
   const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
   const [routeKm, setRouteKm] = useState<number | null>(null);
 
@@ -265,19 +227,13 @@ export default function PairWithCarrier() {
     }, 80);
   }, [origin, destination, carriers, routeCoords]);
 
+  // Countdown (60 seconds)
+  const TOTAL = 60;
+  const [left, setLeft] = useState(TOTAL);
   useEffect(() => {
-    if (!retryVisible) {
-      const id = setInterval(() => setLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
-      return () => clearInterval(id);
-    }
-  }, [retryVisible]);
-
-  const handleRetry = () => {
-    setLeft(TOTAL);
-    setRetryVisible(false);
-    setCarriers(buildMockCarriers(midpoint, selectedType)); // restore carriers
-  };
-
+    const id = setInterval(() => setLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, []);
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
   const progress = 1 - left / TOTAL;
@@ -287,19 +243,15 @@ export default function PairWithCarrier() {
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="light-content"
-      />
-      {/* Close Icon */}
+      {/* Back */}
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => router.push("/DeliveryFlow/LocationInput")}
+        onPress={() => router.back()}
         activeOpacity={0.8}
       >
-        <AntDesign name="close" size={22} color="#fff" />
+        <AntDesign name="arrowleft" size={20} color="#fff" />
       </TouchableOpacity>
+
       {/* Map */}
       <View style={styles.mapWrap}>
         <MapView
@@ -345,6 +297,8 @@ export default function PairWithCarrier() {
               key={c.id}
               coordinate={c.coordinate}
               anchor={{ x: 0.5, y: 1 }}
+              title={c.name}
+              description={c.type}
             >
               <View style={styles.avatarPin}>
                 <Image source={{ uri: c.photoUrl }} style={styles.avatarImg} />
@@ -365,7 +319,7 @@ export default function PairWithCarrier() {
           {carriersFound} courier{carriersFound === 1 ? "" : "s"} found
         </Text>
         <Text style={styles.sheetSub}>
-          Please wait for a carrier to accept your package
+          Please wait for a courier to accept your package
         </Text>
 
         {/* Countdown boxes */}
@@ -394,13 +348,6 @@ export default function PairWithCarrier() {
             ]}
           />
         </View>
-
-        {/* Retry button when countdown is zero and no carrier found */}
-        {retryVisible && (
-          <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        )}
       </View>
     </View>
   );
@@ -443,9 +390,9 @@ const styles = StyleSheet.create({
 
   /* Avatar pin */
   avatarPin: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#fff",
     borderWidth: 2,
     borderColor: "#fff",
@@ -511,20 +458,5 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     backgroundColor: COLOR.brand,
-  },
-
-  /* Retry button */
-  retryBtn: {
-    marginTop: 18,
-    alignSelf: "center",
-    backgroundColor: COLOR.brand,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  retryBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
   },
 });

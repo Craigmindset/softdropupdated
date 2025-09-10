@@ -10,6 +10,7 @@ import "react-native-reanimated";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
+import Accept from "./DeliveryFlow/Accept";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -151,6 +152,10 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="DeliveryFlow/PairWithCarrier"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="DeliveryFlow/Accept"
             options={{ headerShown: false }}
           />
         </Stack>
