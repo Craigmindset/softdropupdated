@@ -39,6 +39,7 @@ export default function Accept() {
   const carrierPhone = String(params.carrier_phone || "Carrier Phone");
   const carrierType = String(params.carrier_type || "Carrier Type");
   const itemType = String(params.itemType || params.item_type || "Item Type");
+  const quantity = Number(params.quality || params.qty || 0);
   const receiverName = String(
     params.receiverName || params.receiver_name || "Receiver Name"
   );
@@ -144,17 +145,48 @@ export default function Accept() {
         </View>
         <View style={styles.divider} />
         <View style={styles.detailList}>
-          <DetailRow
-            label="Item Type"
-            value={itemType}
-            icon={
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 28,
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
               <MaterialCommunityIcons
                 name="package-variant"
                 size={18}
                 color={COLOR.brand}
               />
-            }
-          />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.detailLabel}>Item Type</Text>
+              <Text style={styles.detailValue}>{itemType}</Text>
+            </View>
+            <View
+              style={{
+                width: 28,
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
+              <MaterialCommunityIcons
+                name="counter"
+                size={18}
+                color={COLOR.brand}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.detailLabel}>Quantity</Text>
+              <Text style={styles.detailValue}>{quantity}</Text>
+            </View>
+          </View>
           <DetailRow
             label="Pick-up"
             value={senderAddress}
@@ -230,6 +262,7 @@ export default function Accept() {
               <Text style={styles.detailValue}>{estimatedPrice}</Text>
             </View>
           </View>
+          <View style={styles.divider} />
         </View>
       </Animated.View>
     </View>
