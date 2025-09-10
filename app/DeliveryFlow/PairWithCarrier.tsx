@@ -317,6 +317,59 @@ export default function PairWithCarrier() {
 
       {/* Bottom sheet-style card */}
       <View style={styles.sheet}>
+        {/* DELETE THIS BLOCK TO REMOVE INDIVIDUAL CARRIER ACCEPT BUTTONS */}
+        {/* List available carriers with Accept button */}
+        {carriers.length > 0 && (
+          <View style={{ marginTop: 16 }}>
+            {carriers.map((carrier) => (
+              <View
+                key={carrier.id}
+                style={{ marginBottom: 12, alignItems: "center" }}
+              >
+                <Text
+                  style={{
+                    fontWeight: "700",
+                    color: COLOR.text,
+                    marginBottom: 4,
+                  }}
+                >
+                  {carrier.name} ({carrier.type})
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: COLOR.brand,
+                    paddingHorizontal: 20,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                  }}
+                  onPress={() => {
+                    router.push({
+                      pathname: "/DeliveryFlow/Accept",
+                      params: {
+                        carrier_id: carrier.id,
+                        carrier_name: carrier.name,
+                        carrier_type: carrier.type,
+                        carrier_phone: carrier.phone,
+                        carrier_photo_url: carrier.photoUrl,
+                        sender_latitude: origin.latitude,
+                        sender_longitude: origin.longitude,
+                        receiver_latitude: destination.latitude,
+                        receiver_longitude: destination.longitude,
+                      },
+                    });
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text
+                    style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}
+                  >
+                    Accept
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
         <Text style={styles.sheetTitle}>
           {carriersFound} carrier{carriersFound === 1 ? "" : "s"} found
         </Text>
@@ -395,8 +448,8 @@ const styles = StyleSheet.create({
 
   mapWrap: {
     height: "58%",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
     overflow: "hidden",
     backgroundColor: "#dfe6e9",
   },
