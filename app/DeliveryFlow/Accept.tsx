@@ -118,7 +118,7 @@ export default function Accept() {
         <View style={styles.profileRow}>
           <Image source={{ uri: avatarUrl }} style={styles.profileImg} />
           <View style={{ marginLeft: 16, flex: 1 }}>
-            <Text style={styles.carrierName}>{carrierName}</Text>
+            <Text style={styles.carrierName}>{carrierName} has accepted</Text>
             <View
               style={{
                 flexDirection: "row",
@@ -132,18 +132,11 @@ export default function Accept() {
                 color={COLOR.brand}
               />
               <Text style={styles.carrierPhone}>{carrierPhone}</Text>
-            </View>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 4,
-              }}
-            >
               <MaterialCommunityIcons
                 name="truck-delivery"
                 size={18}
                 color={COLOR.brand}
+                style={{ marginLeft: 12 }}
               />
               <Text style={styles.carrierType}>{carrierType}</Text>
             </View>
@@ -195,28 +188,48 @@ export default function Accept() {
               />
             }
           />
-          <DetailRow
-            label="Receiver Phone"
-            value={receiverContact}
-            icon={
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: 14,
+            }}
+          >
+            <View
+              style={{
+                width: 28,
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
               <MaterialCommunityIcons
                 name="phone"
                 size={18}
                 color={COLOR.brand}
               />
-            }
-          />
-          <DetailRow
-            label="Estimated Price"
-            value={estimatedPrice}
-            icon={
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.detailLabel}>Receiver Phone</Text>
+              <Text style={styles.detailValue}>{receiverContact}</Text>
+            </View>
+            <View
+              style={{
+                width: 28,
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
               <MaterialCommunityIcons
                 name="cash"
                 size={18}
                 color={COLOR.brand}
               />
-            }
-          />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.detailLabel}>Estimated Price</Text>
+              <Text style={styles.detailValue}>{estimatedPrice}</Text>
+            </View>
+          </View>
         </View>
       </Animated.View>
     </View>
@@ -262,69 +275,69 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: COLOR.sheet,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 8,
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 6,
+    paddingHorizontal: 14,
+    paddingTop: 8,
   },
   drawerHandle: {
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 6,
   },
   drawerBar: {
-    width: 48,
-    height: 5,
-    borderRadius: 3,
+    width: 36,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: COLOR.border,
   },
   profileRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 10,
   },
   profileImg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#eee",
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: COLOR.brand,
   },
   carrierName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "700",
     color: COLOR.text,
   },
   carrierPhone: {
-    fontSize: 15,
+    fontSize: 12,
     color: COLOR.sub,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   carrierType: {
-    fontSize: 15,
+    fontSize: 12,
     color: COLOR.sub,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   divider: {
     height: 1,
     backgroundColor: COLOR.border,
-    marginVertical: 16,
+    marginVertical: 8,
   },
   detailList: {
-    marginTop: 4,
+    marginTop: 2,
   },
   detailLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: COLOR.sub,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   detailValue: {
-    fontSize: 16,
+    fontSize: 13,
     color: COLOR.text,
     fontWeight: "500",
   },
