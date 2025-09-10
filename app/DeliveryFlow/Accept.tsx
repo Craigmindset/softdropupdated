@@ -1,449 +1,480 @@
-import React, { useState } from "react";
+// app/DeliveryFlow/Accept.tsx
+import React, { useMemo, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
   Image,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar as RNStatusBar,
+  Dimensions,
   Animated,
   PanResponder,
-  Dimensions,
-  TouchableOpacity,
+  ScrollView,
 } from "react-native";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
+import { MaterialCommunityIcons as MCI } from "@expo/vector-icons";
 
 const COLOR = {
   brand: "#2F7E5D",
-  bg: "#e8f5e9",
-  sheet: "#fff",
+  brandDark: "#0E5A40",
+  bg: "#E9F3EC", // page background
+  card: "#E3F0E7", // drawer background (soft green)
   text: "#0B0F0E",
   sub: "#6B7280",
-  border: "rgba(0,0,0,0.08)",
+  divider: "rgba(16, 24, 40, 0.12)",
+  border: "rgba(16, 24, 40, 0.10)",
+  success: "#21C15A",
 };
 
+const { height: SCREEN_H } = Dimensions.get("window");
+// Snap points (tweak freely):
+const MAX_H = SCREEN_H * 0.78; // expanded height (~78%)
+const MIN_H = SCREEN_H * 0.35; // collapsed height (~35%) -> "below 40%"
+
 export default function Accept() {
-  const params = useLocalSearchParams();
-  const origin = {
-    latitude: Number(params.sender_latitude) || 6.5244,
-    longitude: Number(params.sender_longitude) || 3.3792,
-  };
-  const destination = {
-    latitude: Number(params.receiver_latitude) || 6.465422,
-    longitude: Number(params.receiver_longitude) || 3.406448,
-  };
-  const senderAddress = String(params.sender_location || "Sender address");
-  const receiverAddress = String(
-    params.receiver_location || "Receiver address"
+  const p = useLocalSearchParams();
+
+  // ------- Data (same as your version)
+  const carrierName = String(p.carrier_name || "Lisa Biker");
+  const carrierPhone = String(p.carrier_phone || "+2348010000006");
+  const carrierType = String(p.carrier_type || "bike");
+  const carrierRank = String(p.carrier_rank || "Yellow Belt");
+  const avatarUrl = String(
+    p.carrier_photo_url || "https://randomuser.me/api/portraits/women/44.jpg"
   );
-  const carrierName = String(params.carrier_name || "Carrier Name");
-  const carrierPhone = String(params.carrier_phone || "Carrier Phone");
-  const carrierType = String(params.carrier_type || "Carrier Type");
-  const itemType = String(params.itemType || params.item_type || "Item Type");
-  const quantity = Number(params.quality || params.qty || 0);
+
+  const itemType = String(p.itemType || p.item_type || "Gadget");
+  const quantity = Number(p.quality || p.qty || 1);
+  const senderAddress = String(
+    p.sender_location || "Iceland Civic Centre, Lagos, Nigeria"
+  );
+  const receiverAddress = String(
+    p.receiver_location || "Lekki Phase 1, Lagos, Nigeria"
+  );
   const receiverName = String(
-    params.receiverName || params.receiver_name || "Receiver Name"
+    p.receiverName || p.receiver_name || "Michael Smith"
   );
   const receiverContact = String(
-    params.receiverContact || params.receiver_contact || "Receiver Phone"
+    p.receiverContact || p.receiver_contact || "08375454649"
   );
-  const estimatedPrice = String(
-    params.estimated_price || params.amount || "₦8,200"
-  );
-  const avatarUrl = String(
-    params.carrier_photo_url ||
-      "https://randomuser.me/api/portraits/women/44.jpg"
-  );
+  const estimatedPrice = String(p.estimated_price || p.amount || "₦8,200");
 
-  // Drawer animation
-  const SCREEN_HEIGHT = Dimensions.get("window").height;
-  const drawerMaxHeight = SCREEN_HEIGHT * 0.7;
-  const drawerMinHeight = SCREEN_HEIGHT * 0.4;
-  const [drawerHeight] = useState(new Animated.Value(drawerMaxHeight));
-  const [drawerOpen, setDrawerOpen] = useState(true);
-  const panResponder = React.useMemo(
+  // ------- Drawer animation + gestures
+  const drawerH = useRef(new Animated.Value(MAX_H)).current;
+  const isExpanded = useRef(true);
+
+  const clamp = (v: number, min: number, max: number) =>
+    Math.min(Math.max(v, min), max);
+
+  const snapTo = (target: number) => {
+    Animated.spring(drawerH, {
+      toValue: target,
+      useNativeDriver: false,
+      friction: 9,
+      tension: 90,
+    }).start(() => {
+      isExpanded.current = target === MAX_H;
+    });
+  };
+
+  const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          Math.abs(gestureState.dy) > 10,
-        onPanResponderMove: (_, gestureState) => {
-          if (gestureState.dy > 40) {
-            Animated.timing(drawerHeight, {
-              toValue: drawerMinHeight,
-              duration: 250,
-              useNativeDriver: false,
-            }).start(() => setDrawerOpen(false));
-          } else if (gestureState.dy < -40) {
-            Animated.timing(drawerHeight, {
-              toValue: drawerMaxHeight,
-              duration: 250,
-              useNativeDriver: false,
-            }).start(() => setDrawerOpen(true));
-          }
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8,
+        onPanResponderMove: (_, g) => {
+          // drag down increases dy → reduce height; drag up decreases dy → increase height
+          const next = clamp(MAX_H - g.dy, MIN_H, MAX_H);
+          drawerH.setValue(next);
+        },
+        onPanResponderRelease: (_, g) => {
+          const current = (drawerH as any)._value as number;
+          const halfway = (MIN_H + MAX_H) / 2;
+          // Use velocity and position to decide
+          if (g.vy > 0.6) snapTo(MIN_H);
+          else if (g.vy < -0.6) snapTo(MAX_H);
+          else snapTo(current >= halfway ? MAX_H : MIN_H);
         },
       }),
-    [drawerHeight, drawerMaxHeight, drawerMinHeight]
+    [drawerH]
   );
-  React.useEffect(() => {
-    Animated.timing(drawerHeight, {
-      toValue: drawerOpen ? drawerMaxHeight : drawerMinHeight,
-      duration: 250,
-      useNativeDriver: false,
-    }).start();
-  }, [drawerOpen, drawerHeight, drawerMaxHeight, drawerMinHeight]);
+
+  const toggleHandle = () => snapTo(isExpanded.current ? MIN_H : MAX_H);
 
   return (
-    <View style={styles.container}>
-      {/* Map */}
-      <MapView
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={{
-          latitude: (origin.latitude + destination.latitude) / 2,
-          longitude: (origin.longitude + destination.longitude) / 2,
-          latitudeDelta: 0.2,
-          longitudeDelta: 0.2,
-        }}
-        userInterfaceStyle="light"
-      >
-        <Marker coordinate={origin} title="Pickup" />
-        <Marker coordinate={destination} title="Drop-off" />
-      </MapView>
-      {/* Drawer Overlay */}
-      <Animated.View
-        style={[styles.drawer, { height: drawerHeight }]}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.drawerHandle}>
-          <View style={styles.drawerBar} />
-        </View>
-        <View style={styles.profileRow}>
-          <Image source={{ uri: avatarUrl }} style={styles.profileImg} />
-          <View style={{ marginLeft: 8, flex: 1 }}>
-            <Text style={styles.carrierName}>{carrierName} has accepted</Text>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 2,
-              }}
-            >
-              <MaterialCommunityIcons
-                name="phone"
-                size={18}
-                color={COLOR.brand}
-              />
-              <Text style={styles.carrierPhone}>{carrierPhone}</Text>
-              <MaterialCommunityIcons
-                name="truck-delivery"
-                size={18}
-                color={COLOR.brand}
-                style={{ marginLeft: 6 }}
-              />
-              <Text style={styles.carrierType}>{carrierType}</Text>
+    <SafeAreaView style={styles.safe}>
+      <RNStatusBar barStyle="dark-content" />
+
+      {/* Top Illustration stays behind the drawer */}
+      <View style={{ alignItems: "center", marginTop: 32 }}>
+        <Image
+          source={require("../../assets/images/accept.jpg")}
+          style={styles.hero}
+          resizeMode="cover"
+        />
+        <Text style={styles.heroTitle}>Delivery Accepted</Text>
+      </View>
+
+      {/* Drawer */}
+      <Animated.View style={[styles.drawer, { height: drawerH }]}>
+        {/* Drag handle */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={toggleHandle}
+          {...panResponder.panHandlers}
+          style={styles.handleHitbox}
+        >
+          <View style={styles.handleBar} />
+        </TouchableOpacity>
+
+        {/* Drawer content is scrollable, but the handle area grabs drag first */}
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Accepted line */}
+          <Text style={styles.acceptedLine}>
+            <Text style={styles.acceptedBold}>{carrierName}</Text> has accepted
+            your request
+          </Text>
+
+          {/* Profile row */}
+          <View style={styles.profileRow}>
+            <View style={styles.avatarWrap}>
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+              <View style={styles.verifiedDot}>
+                <MCI name="check-decagram" size={14} color={COLOR.success} />
+              </View>
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <View style={styles.iconRow}>
+                <MCI name="account" size={16} color={COLOR.brand} />
+                <Text style={styles.nameText}>{carrierName}</Text>
+              </View>
+              <View style={styles.iconRow}>
+                <MCI name="phone" size={16} color={COLOR.brand} />
+                <Text style={styles.subText}>{carrierPhone}</Text>
+              </View>
+
+              <View style={styles.badgeRow}>
+                <Badge icon="truck-delivery-outline" text={carrierType} />
+                <Badge icon="star-circle-outline" text={carrierRank} />
+              </View>
             </View>
           </View>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.detailList}>
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 6,
-            }}
-          >
-            <View
-              style={{
-                width: 28,
-                alignItems: "flex-start",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons
-                name="package-variant"
-                size={18}
-                color={COLOR.brand}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailLabel}>Item Type</Text>
-              <Text style={styles.detailValue}>{itemType}</Text>
-            </View>
-            <View
-              style={{
-                width: 28,
-                alignItems: "flex-start",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons
-                name="counter"
-                size={18}
-                color={COLOR.brand}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>{quantity}</Text>
-            </View>
+
+          <View style={styles.divider} />
+
+          {/* Details (Item Type | Quantity) */}
+          <View style={styles.pairRow}>
+            <Row
+              icon="cube-outline"
+              label="Item Type"
+              value={itemType}
+              style={{ flex: 1 }}
+            />
+            <Row
+              icon="checkbox-marked-outline"
+              label="Quantity"
+              value={String(quantity)}
+              style={{ flex: 1 }}
+            />
           </View>
-          <DetailRow
-            label="Pick-up"
-            value={senderAddress}
-            icon={
-              <MaterialCommunityIcons
-                name="map-marker"
-                size={18}
-                color={COLOR.brand}
-              />
-            }
-          />
-          <DetailRow
-            label="Drop-off"
-            value={receiverAddress}
-            icon={
-              <MaterialCommunityIcons
-                name="map-marker-check"
-                size={18}
-                color={COLOR.brand}
-              />
-            }
-          />
-          <DetailRow
+
+          {/* Full width rows */}
+          <Row
+            icon="account-outline"
             label="Receiver Name"
             value={receiverName}
-            icon={
-              <MaterialCommunityIcons
-                name="account"
-                size={18}
-                color={COLOR.brand}
-              />
-            }
           />
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              marginBottom: 6,
-            }}
-          >
-            <View
-              style={{
-                width: 28,
-                alignItems: "flex-start",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons
-                name="phone"
-                size={18}
-                color={COLOR.brand}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailLabel}>Receiver Phone</Text>
-              <Text style={styles.detailValue}>{receiverContact}</Text>
-            </View>
-            <View
-              style={{
-                width: 28,
-                alignItems: "flex-start",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialCommunityIcons
-                name="cash"
-                size={18}
-                color={COLOR.brand}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.detailLabel}>Estimated Price</Text>
-              <Text style={styles.detailValue}>{estimatedPrice}</Text>
-            </View>
-          </View>
+          <Row
+            icon="phone-outline"
+            label="Receiver contact"
+            value={receiverContact}
+          />
+          <Row
+            icon="map-marker-outline"
+            label="Pick-up"
+            value={senderAddress}
+          />
+          <Row
+            icon="map-marker-check-outline"
+            label="Drop-Off"
+            value={receiverAddress}
+          />
+          <Row
+            icon="cash-multiple"
+            label="Estimated Price"
+            value={estimatedPrice}
+          />
+
           <View style={styles.divider} />
-          <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
-              <MaterialCommunityIcons
-                name="message-text"
-                size={20}
-                color={COLOR.brand}
-              />
-              <Text style={styles.actionText}>Message</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
-              <MaterialCommunityIcons
-                name="wallet"
-                size={20}
-                color={COLOR.brand}
-              />
-              <Text style={styles.actionText}>Wallet Account</Text>
-            </TouchableOpacity>
+
+          {/* Actions */}
+          <View style={styles.actionsRow}>
+            <Action
+              icon="message-text-outline"
+              text="Send Message"
+              onPress={() => {}}
+            />
+            <Action icon="wallet-outline" text="Wallet" onPress={() => {}} />
           </View>
-          <TouchableOpacity style={styles.payBtn} activeOpacity={0.9}>
-            <Text style={styles.payBtnText}>Make Payment</Text>
+
+          {/* CTA */}
+          <TouchableOpacity
+            style={styles.cta}
+            activeOpacity={0.9}
+            onPress={() => {}}
+          >
+            <Text style={styles.ctaText}>Make Payment</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </Animated.View>
-    </View>
+    </SafeAreaView>
   );
 }
 
-function DetailRow({
-  label,
-  value,
+/* ---- Small components ---- */
+function Badge({
   icon,
+  text,
 }: {
-  label: string;
-  value: string;
-  icon?: React.ReactNode;
+  icon: keyof typeof MCI.glyphMap;
+  text: string;
 }) {
   return (
-    <View
-      style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}
-    >
-      <View
-        style={{
-          width: 28,
-          alignItems: "flex-start",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
+    <View style={styles.badge}>
+      <MCI name={icon} size={14} color={COLOR.brand} />
+      <Text style={styles.badgeText}>{text}</Text>
+    </View>
+  );
+}
+
+function Row({
+  icon,
+  label,
+  value,
+  style,
+}: {
+  icon: keyof typeof MCI.glyphMap;
+  label: string;
+  value: string;
+  style?: any;
+}) {
+  return (
+    <View style={[rowStyles.row, style]}>
+      <View style={rowStyles.iconWrap}>
+        <MCI name={icon} size={18} color={COLOR.brand} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value}</Text>
+        <Text style={rowStyles.label}>{label}</Text>
+        <Text style={rowStyles.value} numberOfLines={2}>
+          {value}
+        </Text>
       </View>
     </View>
   );
 }
 
+function Action({
+  icon,
+  text,
+  onPress,
+}: {
+  icon: keyof typeof MCI.glyphMap;
+  text: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={actionStyles.wrap}
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
+      <MCI name={icon} size={20} color={COLOR.brand} />
+      <Text style={actionStyles.text}>{text}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/* ---- Styles ---- */
 const styles = StyleSheet.create({
-  payBtn: {
-    width: "100%",
-    backgroundColor: "#111",
-    borderRadius: 5,
-    alignItems: "center",
-    paddingVertical: 14,
-    marginTop: 38,
+  safe: { flex: 1, backgroundColor: "#FFF" },
+
+  hero: {
+    width: "90%",
+    height: 210,
+    borderRadius: 24,
+    marginBottom: 8,
+    marginTop: 16,
+    backgroundColor: COLOR.card,
   },
-  payBtnText: {
-    color: "#fff",
-    fontSize: 16,
+  heroTitle: {
+    fontSize: 22,
     fontWeight: "700",
+    color: COLOR.brand,
+    marginTop: 10,
+    marginBottom: 8,
     letterSpacing: 0.5,
+    textAlign: "center",
   },
-  container: { flex: 1, backgroundColor: COLOR.bg },
-  map: { flex: 1 },
+
   drawer: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: COLOR.sheet,
+    backgroundColor: COLOR.card,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 6,
     paddingHorizontal: 14,
     paddingTop: 8,
+    // shadow/elevation
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  drawerHandle: {
+
+  handleHitbox: {
     alignItems: "center",
-    marginBottom: 2,
+    paddingVertical: 8,
   },
-  drawerBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
+  handleBar: {
+    width: 80,
+    height: 6,
+    borderRadius: 999,
     backgroundColor: COLOR.brand,
   },
-  profileRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
-    marginTop: 15,
-  },
-  profileImg: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#eee",
-    borderWidth: 1.5,
-    borderColor: COLOR.brand,
-  },
-  carrierName: {
+
+  acceptedLine: {
     fontSize: 16,
-    fontWeight: "700",
     color: COLOR.text,
+    marginTop: 8,
+    marginBottom: 10,
   },
-  carrierPhone: {
-    fontWeight: "700",
-    marginTop: 0,
-    marginBottom: 1,
-    fontSize: 12,
-    color: COLOR.sub,
-    marginLeft: 3,
+  acceptedBold: { fontWeight: "800", color: COLOR.text },
+
+  profileRow: { flexDirection: "row", alignItems: "center" },
+  avatarWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: COLOR.brand,
+    overflow: "hidden",
+    backgroundColor: "#fff",
   },
-  divider: {
-    height: 1,
-    backgroundColor: COLOR.border,
-    marginVertical: 3,
-  },
-  detailList: {
-    marginTop: 1,
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: COLOR.sub,
-    marginBottom: 0,
-    fontWeight: "600",
-  },
-  detailValue: {
-    fontSize: 13,
-    color: COLOR.text,
-    fontWeight: "500",
-  },
-  actionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 3,
-    marginBottom: 1,
-    gap: 5,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
+  avatar: { width: "100%", height: "100%" },
+  verifiedDot: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: COLOR.bg,
-    borderRadius: 8,
-    paddingVertical: 8,
-    minWidth: 0,
-    marginTop: 10,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLOR.border,
   },
-  actionText: {
-    marginLeft: 3,
-    fontSize: 13,
-    marginTop: 1,
-    color: COLOR.brand,
-    fontWeight: "600",
+
+  iconRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
   },
-  carrierType: {
-    fontWeight: "700",
-    marginTop: 0,
-    marginBottom: 1,
+  nameText: { fontSize: 14, fontWeight: "800", color: COLOR.text },
+  subText: { fontSize: 12, fontWeight: "700", color: COLOR.sub },
+
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 6,
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: "#fff",
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLOR.border,
+  },
+  badgeText: { fontSize: 12, color: COLOR.brand, fontWeight: "800" },
+
+  divider: { height: 1, backgroundColor: COLOR.divider, marginVertical: 12 },
+
+  pairRow: { flexDirection: "row", gap: 12, marginBottom: 4 },
+
+  actionsRow: { flexDirection: "row", gap: 10, marginTop: 6 },
+
+  cta: {
+    marginTop: 18,
+    backgroundColor: COLOR.brandDark,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  ctaText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+});
+
+const rowStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    columnGap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: "transparent",
+  },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ECF6F0",
+  },
+  label: {
     fontSize: 12,
     color: COLOR.sub,
-    marginLeft: 3,
+    fontWeight: "800",
+    marginBottom: 2,
   },
+  value: {
+    fontSize: 14,
+    color: COLOR.text,
+    fontWeight: "700",
+  },
+});
+
+const actionStyles = StyleSheet.create({
+  wrap: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: COLOR.border,
+    flexDirection: "row",
+    gap: 8,
+  },
+  text: { fontSize: 13, color: COLOR.brand, fontWeight: "800" },
 });
