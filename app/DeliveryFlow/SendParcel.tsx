@@ -406,11 +406,16 @@ const SendParcel: React.FC = () => {
               <Text style={styles.label}>Enter receiver’s contact</Text>
               <View style={styles.inputWrap}>
                 <TextInput
-                  placeholder="Phone number"
+                  placeholder="11 digit number"
                   placeholderTextColor={COLOR.sub}
                   keyboardType="phone-pad"
                   value={receiverPhone}
-                  onChangeText={setReceiverPhone}
+                  maxLength={11}
+                  onChangeText={(text) => {
+                    // Only allow digits and max 11 characters
+                    const cleaned = text.replace(/[^0-9]/g, "").slice(0, 11);
+                    setReceiverPhone(cleaned);
+                  }}
                   style={[styles.input, { paddingRight: 40 }]}
                 />
                 <MCI

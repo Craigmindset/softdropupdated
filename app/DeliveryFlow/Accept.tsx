@@ -7,6 +7,7 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  TouchableOpacity,
 } from "react-native";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -118,13 +119,13 @@ export default function Accept() {
         </View>
         <View style={styles.profileRow}>
           <Image source={{ uri: avatarUrl }} style={styles.profileImg} />
-          <View style={{ marginLeft: 16, flex: 1 }}>
+          <View style={{ marginLeft: 8, flex: 1 }}>
             <Text style={styles.carrierName}>{carrierName} has accepted</Text>
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                marginTop: 4,
+                marginTop: 2,
               }}
             >
               <MaterialCommunityIcons
@@ -137,7 +138,7 @@ export default function Accept() {
                 name="truck-delivery"
                 size={18}
                 color={COLOR.brand}
-                style={{ marginLeft: 12 }}
+                style={{ marginLeft: 6 }}
               />
               <Text style={styles.carrierType}>{carrierType}</Text>
             </View>
@@ -149,7 +150,7 @@ export default function Accept() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              marginBottom: 14,
+              marginBottom: 6,
             }}
           >
             <View
@@ -224,7 +225,7 @@ export default function Accept() {
             style={{
               flexDirection: "row",
               alignItems: "center",
-              marginBottom: 14,
+              marginBottom: 6,
             }}
           >
             <View
@@ -263,6 +264,27 @@ export default function Accept() {
             </View>
           </View>
           <View style={styles.divider} />
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
+              <MaterialCommunityIcons
+                name="message-text"
+                size={20}
+                color={COLOR.brand}
+              />
+              <Text style={styles.actionText}>Message</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionBtn} activeOpacity={0.85}>
+              <MaterialCommunityIcons
+                name="wallet"
+                size={20}
+                color={COLOR.brand}
+              />
+              <Text style={styles.actionText}>Wallet Account</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.payBtn} activeOpacity={0.9}>
+            <Text style={styles.payBtnText}>Make Payment</Text>
+          </TouchableOpacity>
         </View>
       </Animated.View>
     </View>
@@ -280,7 +302,7 @@ function DetailRow({
 }) {
   return (
     <View
-      style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}
+      style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}
     >
       <View
         style={{
@@ -300,6 +322,20 @@ function DetailRow({
 }
 
 const styles = StyleSheet.create({
+  payBtn: {
+    width: "100%",
+    backgroundColor: "#111",
+    borderRadius: 5,
+    alignItems: "center",
+    paddingVertical: 14,
+    marginTop: 38,
+  },
+  payBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
   container: { flex: 1, backgroundColor: COLOR.bg },
   map: { flex: 1 },
   drawer: {
@@ -320,18 +356,19 @@ const styles = StyleSheet.create({
   },
   drawerHandle: {
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 2,
   },
   drawerBar: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLOR.border,
+    backgroundColor: COLOR.brand,
   },
   profileRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 4,
+    marginTop: 15,
   },
   profileImg: {
     width: 44,
@@ -347,31 +384,65 @@ const styles = StyleSheet.create({
     color: COLOR.text,
   },
   carrierPhone: {
+    fontWeight: "700",
+    marginTop: 0,
+    marginBottom: 1,
     fontSize: 12,
     color: COLOR.sub,
-    marginLeft: 6,
-  },
-  carrierType: {
-    fontSize: 12,
-    color: COLOR.sub,
-    marginLeft: 6,
+    marginLeft: 3,
   },
   divider: {
     height: 1,
     backgroundColor: COLOR.border,
-    marginVertical: 8,
+    marginVertical: 3,
   },
   detailList: {
-    marginTop: 2,
+    marginTop: 1,
   },
   detailLabel: {
     fontSize: 11,
     color: COLOR.sub,
-    marginBottom: 1,
+    marginBottom: 0,
   },
   detailValue: {
     fontSize: 13,
     color: COLOR.text,
     fontWeight: "500",
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 3,
+    marginBottom: 1,
+    gap: 5,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLOR.bg,
+    borderRadius: 8,
+    paddingVertical: 8,
+    minWidth: 0,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: COLOR.border,
+  },
+  actionText: {
+    marginLeft: 3,
+    fontSize: 13,
+    marginTop: 10,
+    color: COLOR.brand,
+    fontWeight: "600",
+  },
+  carrierType: {
+    fontWeight: "700",
+    marginTop: 0,
+    marginBottom: 1,
+    fontSize: 12,
+    color: COLOR.sub,
+    marginLeft: 3,
   },
 });
