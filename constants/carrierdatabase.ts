@@ -133,7 +133,7 @@ export const carrierDatabase: Carrier[] = [
     carrier_type: "walk",
     carrier_phone: "+2348010000013",
     carrier_photo_url: "https://randomuser.me/api/portraits/men/13.jpg",
-    carrier_online: false,
+    carrier_online: true,
   },
   {
     carrier_id: "bicycle4",

@@ -1,3 +1,4 @@
+// ...existing code...
 // app/DeliveryFlow/PairWithCarrier.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image } from "react-native";
@@ -140,6 +141,7 @@ function normalizeTypeParam(v: unknown): CarrierType | undefined {
 
 /* ==================== Screen ==================== */
 export default function PairWithCarrier() {
+  const [retryCount, setRetryCount] = useState(0);
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -185,7 +187,7 @@ export default function PairWithCarrier() {
     return list.filter(
       (c) => c.online && (!selectedType || c.type === selectedType)
     );
-  }, [selectedType]);
+  }, [selectedType, retryCount]);
 
   const carriersFound = carriers.length;
 
@@ -208,7 +210,7 @@ export default function PairWithCarrier() {
     return () => {
       cancelled = true;
     };
-  }, [origin, destination]);
+  }, [origin, destination, retryCount]);
 
   // Fit map to all markers & route
   const mapRef = useRef<MapView | null>(null);
@@ -316,10 +318,10 @@ export default function PairWithCarrier() {
       {/* Bottom sheet-style card */}
       <View style={styles.sheet}>
         <Text style={styles.sheetTitle}>
-          {carriersFound} courier{carriersFound === 1 ? "" : "s"} found
+          {carriersFound} carrier{carriersFound === 1 ? "" : "s"} found
         </Text>
         <Text style={styles.sheetSub}>
-          Please wait for a courier to accept your package
+          Please wait for a carrier to accept your package
         </Text>
 
         {/* Countdown boxes */}
@@ -348,6 +350,30 @@ export default function PairWithCarrier() {
             ]}
           />
         </View>
+
+        {/* Retry button if countdown is zero */}
+        {left === 0 && (
+          <TouchableOpacity
+            style={{
+              marginTop: 18,
+              alignSelf: "center",
+              backgroundColor: COLOR.brand,
+              paddingHorizontal: 24,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+            onPress={() => {
+              setLeft(TOTAL);
+              typeof setRetryCount === "function" &&
+                setRetryCount((c) => c + 1);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

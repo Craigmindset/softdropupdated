@@ -323,6 +323,7 @@ export default function SelectCarrierScreen() {
     title?: string;
     price?: string;
     eta?: string;
+    key?: string;
   }>({ open: false });
 
   const senderAddress = (params.sender_location || params.senderLocation) as
@@ -428,6 +429,7 @@ export default function SelectCarrierScreen() {
                   title: c.title,
                   price: c.price,
                   eta: c.eta,
+                  key: c.key,
                 })
               }
             >
@@ -510,6 +512,7 @@ export default function SelectCarrierScreen() {
                     receiver_longitude: destination.longitude,
                     sender_location: senderAddress,
                     receiver_location: receiverAddress,
+                    carrier_type: modal.key,
                   },
                 });
               }}
